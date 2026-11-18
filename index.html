@@ -3,95 +3,101 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Сундучки — Telegram Mini App</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<title>Сундучки — Карточная игра</title>
 <style>
   * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
   body {
     margin: 0; padding: 10px;
     background: #143d30; color: #fff;
-    min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between;
+    display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between;
+    overflow-x: hidden;
   }
-  .screen { display: none; flex-direction: column; gap: 10px; width: 100%; max-width: 500px; margin: 0 auto; flex: 1; }
+  .screen { display: none; flex-direction: column; gap: 12px; width: 100%; max-width: 500px; margin: 0 auto; flex: 1; }
   .screen.active { display: flex; }
-  
-  .card-box { background: rgba(0,0,0,0.28); border-radius: 14px; padding: 14px; border: 1px solid rgba(255,255,255,0.08); }
-  h1 { margin: 0 0 6px; font-size: 24px; text-align: center; color: #ffd54f; }
-  p.sub { margin: 0 0 12px; font-size: 13px; text-align: center; color: #b2dfdb; }
-  
-  label { display: block; font-size: 13px; color: #a5d6a7; margin-bottom: 5px; font-weight: 600; }
+
+  .card-box { background: rgba(0, 0, 0, 0.28); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); }
+  h1 { text-align: center; margin: 6px 0 4px; font-size: 26px; color: #ffd54f; }
+  .subtitle { text-align: center; font-size: 13px; color: #a5d6a7; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: #c8e6c9; margin-bottom: 6px; font-weight: 600; }
   input, select {
-    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #2e7d32;
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4caf50;
     background: #0d2b22; color: #fff; font-size: 16px; margin-bottom: 12px; outline: none;
   }
-  
   .btn {
-    width: 100%; padding: 13px; border: none; border-radius: 10px;
-    font-size: 15px; font-weight: 700; cursor: pointer; color: #fff;
-    background: #2e7d32; transition: opacity 0.15s, transform 0.1s; margin-bottom: 8px;
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    font-size: 16px; font-weight: bold; cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   .btn:active { transform: scale(0.98); }
   .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-  .btn-blue { background: #1976d2; }
-  .btn-orange { background: #ef6c00; }
-  .btn-purple { background: #6a1b9a; }
-  .btn-gray { background: #455a64; }
-  .btn-red { background: #c62828; }
-  
-  .players-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .player-pill {
-    background: rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 10px;
-    border: 2px solid transparent; cursor: pointer; position: relative;
+  .btn-primary { background: #2e7d32; color: #fff; box-shadow: 0 3px 0 #1b5e20; }
+  .btn-accent { background: #ff9800; color: #111; box-shadow: 0 3px 0 #e65100; }
+  .btn-tg { background: #2481cc; color: #fff; box-shadow: 0 3px 0 #165a91; }
+  .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; }
+  .btn-danger { background: #c62828; color: #fff; }
+  .btn-sm { padding: 8px 12px; font-size: 13px; width: auto; }
+
+  .opponents { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .player-badge {
+    background: rgba(0, 0, 0, 0.32); border-radius: 10px; padding: 8px 10px;
+    border: 2px solid transparent; transition: all 0.25s; position: relative;
   }
-  .player-pill.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.15); }
-  .player-pill.selected { border-color: #4fc3f7; background: rgba(79, 195, 247, 0.25); }
-  .player-pill.eliminated { opacity: 0.45; cursor: default; }
-  .p-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .p-stats { font-size: 12px; color: #b2dfdb; margin-top: 3px; display: flex; justify-content: space-between; }
-  
+  .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.15); }
+  .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.4); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
+  .p-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-stats { display: flex; justify-content: space-between; font-size: 12px; color: #a5d6a7; margin-top: 4px; }
+
   .log-box {
-    background: #0b241c; border-radius: 10px; padding: 10px 12px;
-    font-size: 14px; line-height: 1.4; min-height: 54px;
-    display: flex; align-items: center; justify-content: center; text-align: center;
-    border-left: 4px solid #ffd54f; color: #fff;
+    background: #0c261e; border: 1px solid #2e7d32; border-radius: 10px;
+    padding: 10px 12px; text-align: center; font-size: 14px; line-height: 1.4;
+    min-height: 54px; display: flex; align-items: center; justify-content: center;
   }
-  
-  .grid-btns { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .grid-btns.suits { grid-template-columns: repeat(4, 1fr); }
-  .grid-btns.counts { grid-template-columns: repeat(3, 1fr); }
+
+  .action-panel { background: rgba(0,0,0,0.35); border-radius: 12px; padding: 12px; }
+  .panel-title { font-size: 13px; color: #ffd54f; margin-bottom: 8px; text-align: center; font-weight: bold; }
+  .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .grid-suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .grid-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .choice-btn {
-    padding: 11px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
-    background: #1b4d3e; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+    padding: 10px 4px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+    background: #1b4d3e; color: #fff; font-weight: bold; font-size: 15px; cursor: pointer;
   }
-  .choice-btn.in-hand { background: #2e7d32; border-color: #81c784; }
-  .choice-btn.red { color: #ff8a80; }
-  .choice-btn:disabled { opacity: 0.25; cursor: not-allowed; text-decoration: line-through; }
-  
-  .hand-wrap { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-height: 175px; overflow-y: auto; padding: 4px 0; }
-  .mini-card {
-    width: 40px; height: 56px; background: #fff; color: #111; border-radius: 6px;
+  .choice-btn.in-hand { border-color: #ffd54f; background: #26634f; }
+  .choice-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  .answer-banner {
+    background: #1d3557; border: 2px solid #ffd54f; border-radius: 12px;
+    padding: 12px; margin-bottom: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  }
+  .answer-text { font-size: 15px; text-align: center; margin-bottom: 10px; font-weight: 600; }
+  .answer-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .hand-zone { background: rgba(0, 0, 0, 0.32); border-radius: 12px; padding: 10px; margin-top: auto; }
+  .hand-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; color: #c8e6c9; }
+  .cards-wrap { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; min-height: 68px; }
+  .card {
+    width: 44px; height: 64px; background: #fff; color: #111; border-radius: 6px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    font-weight: bold; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  .mini-card.red { color: #d32f2f; }
-  
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.82);
-    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  .card.red { color: #d32f2f; }
+  .card.highlight { transform: translateY(-6px); box-shadow: 0 0 0 3px #ffd54f, 0 6px 12px rgba(0,0,0,0.5); }
+
+  .flying-card {
+    position: fixed; width: 42px; height: 60px; border-radius: 6px;
+    background: #fff; color: #111; font-weight: bold; font-size: 14px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.6); z-index: 9999; pointer-events: none;
+    transition: left 0.75s cubic-bezier(0.22, 1, 0.36, 1), top 0.75s cubic-bezier(0.22, 1, 0.36, 1), transform 0.75s ease;
   }
-  .modal-overlay.open { display: flex; }
-  .modal-card {
-    background: #164234; border: 2px solid #ffd54f; border-radius: 16px;
-    padding: 18px; width: 100%; max-width: 380px; text-align: center;
-  }
-  .room-code-display {
-    font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #ffd54f;
-    background: #0b241c; padding: 12px; border-radius: 10px; margin: 10px 0;
-  }
-  .lobby-list { text-align: left; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 10px; margin-bottom: 12px; }
-  .lobby-item { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; }
-  .lobby-item:last-child { border-bottom: none; }
+  .flying-card.back { background: #1e4b7a; border: 2px solid #fff; color: transparent; }
+  .flying-card.red { color: #d32f2f; }
+
+  .lobby-list { list-style: none; padding: 0; margin: 10px 0; }
+  .lobby-list li { background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .code-display { font-size: 32px; font-weight: bold; letter-spacing: 6px; text-align: center; color: #ffd54f; background: #0d2b22; padding: 10px; border-radius: 10px; margin: 8px 0; }
 </style>
 </head>
 <body>
@@ -99,958 +105,934 @@
 <div id="screen-menu" class="screen active">
   <div class="card-box">
     <h1>🃏 Сундучки</h1>
-    <p class="sub">Динамическая колода (36 / 52) • Умные боты • Онлайн</p>
-    
-    <label for="input-nick">Ваш никнейм:</label>
-    <input type="text" id="input-nick" placeholder="Введите имя" maxlength="16">
-    
-    <label for="select-count">Количество игроков (для соло-игры):</label>
-    <select id="select-count">
-      <option value="2">2 игрока (колода 36 карт — по 18)</option>
-      <option value="3" selected>3 игрока (колода 36 карт — по 12)</option>
-      <option value="4">4 игрока (колода 52 карты — по 13)</option>
-      <option value="5">5 игроков (колода 52 карты — 10–11)</option>
+    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–5 игроков</div>
+
+    <label for="player-nick">Ваш никнейм:</label>
+    <input type="text" id="player-nick" placeholder="Введите имя" maxlength="16">
+
+    <label for="solo-count">Количество игроков (в соло с ботами):</label>
+    <select id="solo-count">
+      <option value="2">2 игрока (колода 36 карт)</option>
+      <option value="3" selected>3 игрока (колода 36 карт)</option>
+      <option value="4">4 игрока (колода 52 карты)</option>
+      <option value="5">5 игроков (колода 52 карты)</option>
     </select>
-    
-    <button type="button" id="btn-start-solo" class="btn">🎮 Одиночная игра (с ботами)</button>
-    <button type="button" id="btn-open-mp" class="btn btn-blue">🌐 Мультиплеер (с разных телефонов)</button>
-    <button type="button" id="btn-share-bot" class="btn btn-purple">🔗 Отправить игру другу в Telegram</button>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+      <button id="btn-start-solo" class="btn btn-primary">🎮 Одиночная игра (с ботами)</button>
+      <button id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (с разных телефонов)</button>
+      <button id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
+    </div>
   </div>
 </div>
 
-<div id="screen-mp" class="screen">
+<div id="screen-mp-menu" class="screen">
   <div class="card-box">
-    <h1>🌐 Онлайн-комната</h1>
-    <p class="sub">Играйте с друзьями с разных телефонов</p>
-    
-    <button type="button" id="btn-create-room" class="btn btn-orange">➕ Создать комнату</button>
-    
-    <div style="margin: 14px 0; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 14px;">
-      <label for="input-room-code">Или введите 4-значный код комнаты:</label>
-      <input type="tel" id="input-room-code" placeholder="Например: 4821" maxlength="4">
-      <button type="button" id="btn-join-room" class="btn btn-blue">🚪 Войти в комнату</button>
-    </div>
-    
-    <button type="button" id="btn-back-menu" class="btn btn-gray">← Назад в меню</button>
-    <div id="mp-status" style="font-size:13px; color:#ffd54f; text-align:center; margin-top:6px;"></div>
+    <h1>🌐 Онлайн-игра</h1>
+    <div class="subtitle">Играйте с друзьями со своих телефонов</div>
+
+    <button id="btn-create-room" class="btn btn-primary" style="margin-bottom: 14px;">➕ Создать комнату</button>
+
+    <label for="join-code">Или введите 4-значный код друга:</label>
+    <input type="tel" id="join-code" placeholder="Например: 4819" maxlength="4">
+    <button id="btn-join-room" class="btn btn-accent" style="margin-bottom: 12px;">🚪 Войти в комнату</button>
+
+    <button id="btn-back-menu" class="btn btn-secondary">← Назад в меню</button>
   </div>
 </div>
 
 <div id="screen-lobby" class="screen">
   <div class="card-box">
-    <h1>Лобби комнаты</h1>
-    <p class="sub">Скажите этот код друзьям:</p>
-    <div class="room-code-display" id="lobby-code">----</div>
-    
-    <div class="lobby-list" id="lobby-players"></div>
-    
-    <button type="button" id="btn-invite-friend" class="btn btn-purple">📨 Пригласить друга (с кодом)</button>
-    <button type="button" id="btn-add-bot" class="btn btn-blue">+ Добавить умного бота</button>
-    <button type="button" id="btn-start-mp" class="btn">🚀 Начать игру</button>
-    <button type="button" id="btn-leave-lobby" class="btn btn-gray">Выйти</button>
+    <h1>Комната</h1>
+    <div class="subtitle">Сообщите этот код друзьям или отправьте приглашение</div>
+    <div id="lobby-code" class="code-display">----</div>
+
+    <button id="btn-invite-room" class="btn btn-tg" style="margin-bottom: 10px;">📨 Пригласить друга (с кодом)</button>
+
+    <label>Участники (<span id="lobby-count">1</span>/5):</label>
+    <ul id="lobby-players" class="lobby-list"></ul>
+
+    <div id="host-controls" style="display:none; flex-direction: column; gap: 8px;">
+      <button id="btn-add-bot" class="btn btn-secondary">🤖 + Добавить бота</button>
+      <button id="btn-start-mp" class="btn btn-primary">🚀 Начать игру</button>
+    </div>
+    <div id="guest-wait" class="subtitle" style="display:none; margin-top:10px;">Ожидаем, когда создатель запустит игру...</div>
+
+    <button id="btn-leave-lobby" class="btn btn-danger" style="margin-top: 10px;">Выйти</button>
   </div>
 </div>
 
 <div id="screen-game" class="screen">
-  <div class="players-grid" id="game-players"></div>
-  
-  <div class="log-box" id="game-log">Подготовка стола...</div>
-  
-  <div class="card-box" id="action-panel" style="padding: 10px;">
-    <div id="step-title" style="font-size:13px; color:#ffd54f; font-weight:700; margin-bottom:8px; text-align:center;">
-      Ожидание хода...
-    </div>
-    <div id="step-content"></div>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-size:12px; color:#a5d6a7;" id="deck-info">Колода: 36 карт</span>
+    <button id="btn-quit-game" class="btn btn-danger btn-sm">Выйти</button>
   </div>
-  
-  <div class="card-box" style="padding: 10px;">
-    <div style="display:flex; justify-content:space-between; font-size:12px; color:#a5d6a7; margin-bottom:6px;">
-      <span>Ваши карты (<span id="my-cards-count">0</span>):</span>
-      <span>Ваши сундучки: <b id="my-chests-count" style="color:#ffd54f;">0</b></span>
-    </div>
-    <div class="hand-wrap" id="my-hand"></div>
-  </div>
-  
-  <button type="button" id="btn-exit-game" class="btn btn-gray" style="padding:9px; font-size:13px;">Выйти в меню</button>
-</div>
 
-<div id="modal-answer" class="modal-overlay">
-  <div class="modal-card">
-    <h2 style="margin:0 0 8px; color:#ffd54f; font-size:20px;">Вам задали вопрос!</h2>
-    <p id="modal-question-text" style="font-size:15px; line-height:1.4; margin-bottom:14px;"></p>
-    <div style="font-size:12px; color:#a5d6a7; margin-bottom:10px;">
-      Защита от обмана: невозможный ответ заблокирован.
+  <div id="opponents-area" class="opponents"></div>
+
+  <div id="game-log" class="log-box">Подготовка стола...</div>
+
+  <div id="answer-modal" class="answer-banner" style="display:none;">
+    <div id="answer-question" class="answer-text">У вас спрашивают карту...</div>
+    <div class="answer-btns">
+      <button id="btn-ans-yes" class="btn btn-primary">✅ Да, есть</button>
+      <button id="btn-ans-no" class="btn btn-danger">❌ Нет</button>
     </div>
-    <div style="display:flex; gap:10px;">
-      <button type="button" id="btn-answer-yes" class="btn" style="margin:0;">✅ Да, есть</button>
-      <button type="button" id="btn-answer-no" class="btn btn-red" style="margin:0;">❌ Нет</button>
+  </div>
+
+  <div id="turn-panel" class="action-panel" style="display:none;">
+    <div id="turn-prompt" class="panel-title">Выберите соперника</div>
+    <div id="turn-choices"></div>
+  </div>
+
+  <div id="my-hand-zone" class="hand-zone">
+    <div class="hand-header">
+      <span id="my-name-label">Вы</span>
+      <span>Сундучков: <strong id="my-chests" style="color:#ffd54f;">0</strong> | Карт: <strong id="my-cards-count">0</strong></span>
     </div>
+    <div id="my-cards" class="cards-wrap"></div>
   </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-  if (tg) {
-    try { tg.ready(); tg.expand(); } catch (e) {}
-  }
+const SUITS = ['♠', '♥', '♦', '♣'];
+const RANKS_36 = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+const BOT_DELAY = 2900;
+const BOT_STEP_DELAY = 2600;
 
-  function haptic(type) {
-    if (!tg || !tg.HapticFeedback) return;
+let tg = null;
+try {
+  if (window.Telegram && window.Telegram.WebApp) {
+    tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+  }
+} catch (e) {}
+
+function loadExternalScripts() {
+  const s1 = document.createElement('script');
+  s1.src = 'https://telegram.org/js/telegram-web-app.js';
+  s1.onload = () => {
     try {
-      if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
-      else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
-      else tg.HapticFeedback.impactOccurred('light');
+      if (window.Telegram && window.Telegram.WebApp) {
+        tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        const nickInput = document.getElementById('player-nick');
+        if (nickInput && !nickInput.value && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
+          nickInput.value = tg.initDataUnsafe.user.first_name;
+        }
+      }
     } catch (e) {}
-  }
+  };
+  document.head.appendChild(s1);
 
-  const nickInput = document.getElementById('input-nick');
+  const s2 = document.createElement('script');
+  s2.src = 'https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js';
+  document.head.appendChild(s2);
+}
+
+function haptic(type = 'light') {
+  try {
+    if (tg && tg.HapticFeedback) {
+      if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
+      else tg.HapticFeedback.impactOccurred(type);
+    }
+  } catch (e) {}
+}
+
+let state = {
+  mode: 'solo',
+  myId: 'p0',
+  myNick: 'Игрок',
+  players: [],
+  activeRanks: RANKS_36,
+  turnIndex: 0,
+  step: 'IDLE',
+  pendingAsk: null,
+  botMemory: {}
+};
+
+let peer = null;
+let connections = {};
+let hostConn = null;
+let roomCode = '';
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadExternalScripts();
+  const nickInput = document.getElementById('player-nick');
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
     nickInput.value = tg.initDataUnsafe.user.first_name;
-  } else {
-    nickInput.value = 'Игрок';
   }
 
-  const SUITS = ['♠', '♥', '♦', '♣'];
-  const RANKS_36 = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
-  const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
-
-  let state = {
-    mode: 'solo', // 'solo' | 'mp-host' | 'mp-client'
-    myId: 'p0',
-    players: [], // { id, name, isBot, hand: [], chests: [] }
-    turnIndex: 0,
-    ranks: RANKS_36,
-    targetId: null,
-    askedRank: null,
-    askedCount: null,
-    step: 'idle', // 'select-target', 'select-rank', 'wait-answer', 'select-count', 'select-suits', 'bot-thinking'
-    log: '',
-    gameOver: false,
-    // Умная память ботов:
-    // botMemory[botId] = { knownRanks: { playerId: Set(ranks) }, missingRanks: { playerId: Set(ranks) }, askedCombos: Set }
-    botMemory: {}
-  };
-
-  let peer = null;
-  let connections = [];
-  let hostConn = null;
-  let roomCode = '';
-  let botTimer = null;
-
-  function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-  }
-
-  function getPlayer(id) {
-    return state.players.find(p => p.id === id);
-  }
-
-  function getMe() {
-    return getPlayer(state.myId);
-  }
-
-  // --- УМНАЯ ПАМЯТЬ БОТОВ ---
-  function initBotMemory() {
-    state.botMemory = {};
-    state.players.forEach(p => {
-      if (p.isBot) {
-        state.botMemory[p.id] = {
-          knownRanks: {},   // playerId -> Set of ranks
-          missingRanks: {}, // playerId -> Set of ranks
-          triedGuesses: new Set() // "targetId_rank_count_suits"
-        };
-        state.players.forEach(other => {
-          state.botMemory[p.id].knownRanks[other.id] = new Set();
-          state.botMemory[p.id].missingRanks[other.id] = new Set();
-        });
-      }
-    });
-  }
-
-  function recordTableEvent(askerId, targetId, rank, hasCards, successTransfer) {
-    state.players.forEach(bot => {
-      if (!bot.isBot) return;
-      const mem = state.botMemory[bot.id];
-      if (!mem) return;
-
-      // Все за столом видят, что спрашивающий (askerId) скорее всего собирает этот номинал
-      if (askerId !== bot.id) {
-        mem.knownRanks[askerId].add(rank);
-        mem.missingRanks[askerId].delete(rank);
-      }
-
-      if (!hasCards) {
-        // У targetId точно НЕТ этого номинала
-        mem.missingRanks[targetId].add(rank);
-        mem.knownRanks[targetId].delete(rank);
-      } else if (successTransfer) {
-        // Карты перешли от targetId к askerId
-        mem.missingRanks[targetId].add(rank);
-        mem.knownRanks[targetId].delete(rank);
-        if (askerId !== bot.id) {
-          mem.knownRanks[askerId].add(rank);
-        }
-      } else {
-        // Карты у targetId есть, но спрашивающий не угадал количество/масть
-        mem.knownRanks[targetId].add(rank);
-        mem.missingRanks[targetId].delete(rank);
-      }
-    });
-  }
-
-  function clearRankFromMemory(rank) {
-    state.players.forEach(bot => {
-      if (!bot.isBot || !state.botMemory[bot.id]) return;
-      const mem = state.botMemory[bot.id];
-      state.players.forEach(p => {
-        mem.knownRanks[p.id].delete(rank);
-        mem.missingRanks[p.id].delete(rank);
-      });
-    });
-  }
-
-  // --- ГЕНЕРАЦИЯ КОЛОДЫ ---
-  function buildDeck(playerCount) {
-    const ranks = playerCount <= 3 ? RANKS_36 : RANKS_52;
-    state.ranks = ranks;
-    let deck = [];
-    for (let r of ranks) {
-      for (let s of SUITS) {
-        deck.push({ rank: r, suit: s });
-      }
-    }
-    for (let i = deck.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [deck[i], deck[j]] = [deck[j], deck[i]];
-    }
-    return deck;
-  }
-
-  function checkChestsForPlayer(player) {
-    const counts = {};
-    player.hand.forEach(c => counts[c.rank] = (counts[c.rank] || 0) + 1);
-    let collected = [];
-    for (let r in counts) {
-      if (counts[r] === 4) {
-        player.hand = player.hand.filter(c => c.rank !== r);
-        player.chests.push(r);
-        collected.push(r);
-        clearRankFromMemory(r);
-      }
-    }
-    return collected;
-  }
-
-  function checkGameOver() {
-    const totalChests = state.players.reduce((acc, p) => acc + p.chests.length, 0);
-    const activePlayers = state.players.filter(p => p.hand.length > 0);
-    if (totalChests === state.ranks.length || activePlayers.length <= 1) {
-      state.gameOver = true;
-      let maxC = -1;
-      let winners = [];
-      state.players.forEach(p => {
-        if (p.chests.length > maxC) {
-          maxC = p.chests.length;
-          winners = [p.name];
-        } else if (p.chests.length === maxC) {
-          winners.push(p.name);
-        }
-      });
-      state.log = `🏆 Игра окончена! Победитель: ${winners.join(', ')} (сундучков: ${maxC})!`;
-      state.step = 'gameover';
-      haptic('success');
-      syncAndRender();
-      return true;
-    }
-    return false;
-  }
-
-  function advanceTurn(keepSamePlayer) {
-    if (checkGameOver()) return;
-
-    if (!keepSamePlayer) {
-      state.turnIndex = (state.turnIndex + 1) % state.players.length;
-    }
-
-    // Пропускаем игроков без карт
-    let safety = 0;
-    while (state.players[state.turnIndex].hand.length === 0 && safety < 10) {
-      state.turnIndex = (state.turnIndex + 1) % state.players.length;
-      safety++;
-    }
-
-    const current = state.players[state.turnIndex];
-    state.targetId = null;
-    state.askedRank = null;
-    state.askedCount = null;
-
-    if (current.isBot) {
-      state.step = 'bot-thinking';
-      syncAndRender();
-      clearTimeout(botTimer);
-      botTimer = setTimeout(() => runBotTurn(), 2800);
-    } else {
-      state.step = 'select-target';
-      if (current.id === state.myId) haptic('light');
-      syncAndRender();
-    }
-  }
-
-  // --- ЛОГИКА УМНОГО БОТА (МЕДЛЕННЫЙ ТЕМП) ---
-  function runBotTurn() {
-    if (state.gameOver || state.mode === 'mp-client') return;
-    const bot = state.players[state.turnIndex];
-    if (!bot || !bot.isBot) return;
-
-    const opponents = state.players.filter(p => p.id !== bot.id && p.hand.length > 0);
-    if (opponents.length === 0) {
-      checkGameOver();
-      return;
-    }
-
-    const mem = state.botMemory[bot.id];
-    const botRanks = [...new Set(bot.hand.map(c => c.rank))];
-    const collectedAll = new Set(state.players.flatMap(p => p.chests));
-    const availableRanks = state.ranks.filter(r => !collectedAll.has(r));
-
-    let chosenTarget = null;
-    let chosenRank = null;
-
-    // 1. Приоритет: спросить номинал, который уже есть у бота, у того игрока, у кого он точно замечен в памяти
-    for (let r of botRanks) {
-      for (let opp of opponents) {
-        if (mem && mem.knownRanks[opp.id].has(r) && !mem.missingRanks[opp.id].has(r)) {
-          chosenTarget = opp;
-          chosenRank = r;
-          break;
-        }
-      }
-      if (chosenTarget) break;
-    }
-
-    // 2. Приоритет: спросить номинал, который есть у бота, у соперника, про которого НЕ известно, что карты нет
-    if (!chosenTarget && botRanks.length > 0) {
-      const shuffledRanks = [...botRanks].sort(() => Math.random() - 0.5);
-      for (let r of shuffledRanks) {
-        const validOpps = opponents.filter(o => !mem || !mem.missingRanks[o.id].has(r));
-        if (validOpps.length > 0) {
-          chosenTarget = validOpps[Math.floor(Math.random() * validOpps.length)];
-          chosenRank = r;
-          break;
-        }
-      }
-    }
-
-    // 3. Запасной вариант: блеф / сбор с нуля по памяти чужих запросов
-    if (!chosenTarget) {
-      chosenTarget = opponents[Math.floor(Math.random() * opponents.length)];
-      const candidates = availableRanks.filter(r => !mem || !mem.missingRanks[chosenTarget.id].has(r));
-      const pool = candidates.length > 0 ? candidates : availableRanks;
-      chosenRank = pool[Math.floor(Math.random() * pool.length)];
-    }
-
-    state.targetId = chosenTarget.id;
-    state.askedRank = chosenRank;
-    state.log = `🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`;
-    syncAndRender();
-
-    // Пауза 3 секунды, чтобы игрок успел прочитать вопрос
-    botTimer = setTimeout(() => {
-      if (state.gameOver) return;
-      const matching = chosenTarget.hand.filter(c => c.rank === chosenRank);
-      const hasCards = matching.length > 0;
-
-      if (!chosenTarget.isBot) {
-        // Если бот спрашивает живого игрока — открываем окно ответа Да/Нет
-        state.step = 'wait-answer';
-        syncAndRender();
-      } else {
-        // Отвечает другой бот
-        if (!hasCards) {
-          state.log = `🤖 ${chosenTarget.name} отвечает: «Нет, ${chosenRank} у меня нет».`;
-          recordTableEvent(bot.id, chosenTarget.id, chosenRank, false, false);
-          syncAndRender();
-          botTimer = setTimeout(() => advanceTurn(false), 2600);
-        } else {
-          state.log = `🤖 ${chosenTarget.name} отвечает: «Да, ${chosenRank} есть!»`;
-          syncAndRender();
-          botTimer = setTimeout(() => botGuessCountAndSuits(bot, chosenTarget, chosenRank, matching), 2800);
-        }
-      }
-    }, 3000);
-  }
-
-  function botGuessCountAndSuits(bot, target, rank, actualMatching) {
-    if (state.gameOver) return;
-    const mem = state.botMemory[bot.id];
-    const botOwnedSuits = new Set(bot.hand.filter(c => c.rank === rank).map(c => c.suit));
-    const possibleSuits = SUITS.filter(s => !botOwnedSuits.has(s));
-
-    // Бот выбирает количество от 1 до 3 (не больше, чем осталось свободных мастей)
-    const maxPossible = Math.min(3, possibleSuits.length);
-    let guessedCount = 1;
-    // Пробуем подобрать комбинацию, которую бот ещё не называл этому игроку
-    for (let tryAttempt = 0; tryAttempt < 12; tryAttempt++) {
-      const c = Math.floor(Math.random() * maxPossible) + 1;
-      const shuffledSuits = [...possibleSuits].sort(() => Math.random() - 0.5).slice(0, c).sort();
-      const key = `${target.id}_${rank}_${c}_${shuffledSuits.join('')}`;
-      if (!mem || !mem.triedGuesses.has(key) || tryAttempt === 11) {
-        if (mem) mem.triedGuesses.add(key);
-        guessedCount = c;
-        botProcessGuessResult(bot, target, rank, guessedCount, shuffledSuits, actualMatching);
-        return;
-      }
-    }
-  }
-
-  function botProcessGuessResult(bot, target, rank, guessedCount, guessedSuits, actualMatching) {
-    state.log = `🤖 ${bot.name} предполагает: ${guessedCount} шт. (${guessedSuits.join(', ')})...`;
-    syncAndRender();
-
-    botTimer = setTimeout(() => {
-      if (state.gameOver) return;
-      const actualSuits = actualMatching.map(c => c.suit).sort();
-      const isRight = actualMatching.length === guessedCount &&
-        guessedSuits.every((s, idx) => s === actualSuits[idx]);
-
-      if (isRight) {
-        target.hand = target.hand.filter(c => c.rank !== rank);
-        bot.hand.push(...actualMatching);
-        const chests = checkChestsForPlayer(bot);
-        recordTableEvent(bot.id, target.id, rank, true, true);
-        let extra = chests.length > 0 ? ` И собирает сундучок «${chests.join(', ')}»!` : '';
-        state.log = `🎯 ${bot.name} угадал точно и забирает карты у ${target.name}!${extra} Ходит снова.`;
-        syncAndRender();
-        botTimer = setTimeout(() => advanceTurn(true), 2800);
-      } else {
-        recordTableEvent(bot.id, target.id, rank, true, false);
-        state.log = `❌ ${bot.name} не угадал количество или масть. Переход хода.`;
-        syncAndRender();
-        botTimer = setTimeout(() => advanceTurn(false), 2800);
-      }
-    }, 2800);
-  }
-
-  // --- ДЕЙСТВИЯ ЖИВОГО ИГРОКА ---
-  function handlePlayerAnswer(answeredYes) {
-    const asker = getPlayer(state.players[state.turnIndex].id);
-    const target = getPlayer(state.targetId);
-    const rank = state.askedRank;
-    const matching = target.hand.filter(c => c.rank === rank);
-
-    document.getElementById('modal-answer').classList.remove('open');
-
-    if (state.mode === 'mp-client') {
-      hostConn.send({ type: 'player-answer', answeredYes });
-      return;
-    }
-
-    if (!answeredYes) {
-      state.log = `${target.name} отвечает: «Нет, ${rank} у меня нет».`;
-      recordTableEvent(asker.id, target.id, rank, false, false);
-      syncAndRender();
-      setTimeout(() => advanceTurn(false), 2200);
-    } else {
-      state.log = `${target.name} отвечает: «Да, ${rank} есть!»`;
-      if (asker.isBot) {
-        syncAndRender();
-        botTimer = setTimeout(() => botGuessCountAndSuits(asker, target, rank, matching), 2400);
-      } else {
-        state.step = 'select-count';
-        syncAndRender();
-      }
-    }
-  }
-
-  function submitGuess(count, suits) {
-    if (state.mode === 'mp-client') {
-      hostConn.send({ type: 'player-guess', count, suits });
-      return;
-    }
-
-    const asker = getPlayer(state.players[state.turnIndex].id);
-    const target = getPlayer(state.targetId);
-    const rank = state.askedRank;
-    const actualMatching = target.hand.filter(c => c.rank === rank);
-    const actualSuits = actualMatching.map(c => c.suit).sort();
-    const sortedGuess = [...suits].sort();
-
-    const isRight = actualMatching.length === count &&
-      sortedGuess.every((s, i) => s === actualSuits[i]);
-
-    if (isRight) {
-      target.hand = target.hand.filter(c => c.rank !== rank);
-      asker.hand.push(...actualMatching);
-      const chests = checkChestsForPlayer(asker);
-      recordTableEvent(asker.id, target.id, rank, true, true);
-      haptic('success');
-      let chestMsg = chests.length > 0 ? ` 🎉 Собран сундучок «${chests.join(', ')}»!` : '';
-      state.log = `✅ Верно! ${asker.name} забирает ${count} шт. (${sortedGuess.join(', ')}) у ${target.name}.${chestMsg} Ходите ещё!`;
-      advanceTurn(true);
-    } else {
-      recordTableEvent(asker.id, target.id, rank, true, false);
-      haptic('error');
-      state.log = `❌ Не угадали! Вы назвали ${count} шт. (${sortedGuess.join(', ')}). Ход переходит дальше.`;
-      advanceTurn(false);
-    }
-  }
-
-  // --- ОТРИСОВКА ИНТЕРФЕЙСА ---
-  let selectedSuitsTemp = [];
-
-  function render() {
-    const me = getMe();
-    const currentTurnPlayer = state.players[state.turnIndex];
-    const isMyTurn = currentTurnPlayer && currentTurnPlayer.id === state.myId && !state.gameOver;
-
-    // 1. Карточки игроков
-    const pGrid = document.getElementById('game-players');
-    pGrid.innerHTML = '';
-    state.players.forEach((p, idx) => {
-      const div = document.createElement('div');
-      div.className = 'player-pill';
-      if (idx === state.turnIndex && !state.gameOver) div.classList.add('active-turn');
-      if (p.id === state.targetId) div.classList.add('selected');
-      if (p.hand.length === 0) div.classList.add('eliminated');
-
-      div.innerHTML = `
-        <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name} ${p.id === state.myId ? '(Вы)' : ''}</div>
-        <div class="p-stats">
-          <span>Карт: <b>${p.hand.length}</b></span>
-          <span>Сундуков: <b style="color:#ffd54f;">${p.chests.length}</b></span>
-        </div>
-      `;
-
-      if (isMyTurn && state.step === 'select-target' && p.id !== state.myId && p.hand.length > 0) {
-        div.style.cursor = 'pointer';
-        div.addEventListener('click', () => {
-          haptic('light');
-          state.targetId = p.id;
-          state.step = 'select-rank';
-          syncAndRender();
-        });
-      }
-      pGrid.appendChild(div);
-    });
-
-    // 2. Лог
-    document.getElementById('game-log').innerText = state.log;
-
-    // 3. Панель действий
-    const stepTitle = document.getElementById('step-title');
-    const stepContent = document.getElementById('step-content');
-    stepContent.innerHTML = '';
-
-    if (state.gameOver) {
-      stepTitle.innerText = 'Партия завершена';
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-orange';
-      btn.innerText = '🔄 Сыграть ещё раз';
-      btn.addEventListener('click', () => {
-        if (state.mode === 'solo') startSoloGame();
-        else if (state.mode === 'mp-host') startMultiplayerGame();
-      });
-      if (state.mode !== 'mp-client') stepContent.appendChild(btn);
-    } else if (!isMyTurn) {
-      stepTitle.innerText = `Сейчас ходит: ${currentTurnPlayer ? currentTurnPlayer.name : '...'}`;
-    } else {
-      if (state.step === 'select-target') {
-        stepTitle.innerText = 'Шаг 1: Нажмите на игрока сверху, у которого спросить карту';
-      } else if (state.step === 'select-rank') {
-        const target = getPlayer(state.targetId);
-        stepTitle.innerText = `Шаг 2: Какой номинал спросить у ${target.name}?`;
-        const grid = document.createElement('div');
-        grid.className = 'grid-btns';
-        const myRanks = new Set(me.hand.map(c => c.rank));
-        const allChests = new Set(state.players.flatMap(p => p.chests));
-
-        state.ranks.forEach(r => {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'choice-btn' + (myRanks.has(r) ? ' in-hand' : '');
-          b.innerText = r;
-          if (allChests.has(r)) b.disabled = true;
-          b.addEventListener('click', () => {
-            haptic('light');
-            if (state.mode === 'mp-client') {
-              hostConn.send({ type: 'player-ask', targetId: state.targetId, rank: r });
-            } else {
-              state.askedRank = r;
-              state.log = `👤 ${me.name} спрашивает у ${target.name}: «Есть ли ${r}?»`;
-              if (target.isBot) {
-                const has = target.hand.some(c => c.rank === r);
-                if (!has) {
-                  state.log = `🤖 ${target.name} отвечает: «Нет, ${r} у меня нет».`;
-                  recordTableEvent(me.id, target.id, r, false, false);
-                  syncAndRender();
-                  setTimeout(() => advanceTurn(false), 2000);
-                } else {
-                  state.log = `🤖 ${target.name} отвечает: «Да, ${r} есть!»`;
-                  state.step = 'select-count';
-                  syncAndRender();
-                }
-              } else {
-                state.step = 'wait-answer';
-                syncAndRender();
-              }
-            }
-          });
-          grid.appendChild(b);
-        });
-        stepContent.appendChild(grid);
-
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.className = 'btn btn-gray';
-        cancelBtn.style.marginTop = '8px';
-        cancelBtn.style.padding = '8px';
-        cancelBtn.innerText = '← Выбрать другого игрока';
-        cancelBtn.addEventListener('click', () => {
-          state.targetId = null;
-          state.step = 'select-target';
-          syncAndRender();
-        });
-        stepContent.appendChild(cancelBtn);
-
-      } else if (state.step === 'wait-answer') {
-        const target = getPlayer(state.targetId);
-        stepTitle.innerText = `Ожидаем ответ от ${target.name}...`;
-      } else if (state.step === 'select-count') {
-        const target = getPlayer(state.targetId);
-        stepTitle.innerText = `Шаг 3: Сколько карт «${state.askedRank}» у ${target.name}? (от 1 до 3)`;
-        const grid = document.createElement('div');
-        grid.className = 'grid-btns counts';
-        const myOwnedOfRank = me.hand.filter(c => c.rank === state.askedRank).length;
-        const maxCanAsk = Math.min(3, 4 - myOwnedOfRank);
-
-        [1, 2, 3].forEach(cnt => {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'choice-btn';
-          b.innerText = `${cnt} шт.`;
-          if (cnt > maxCanAsk) b.disabled = true;
-          b.addEventListener('click', () => {
-            haptic('light');
-            state.askedCount = cnt;
-            selectedSuitsTemp = [];
-            state.step = 'select-suits';
-            render();
-          });
-          grid.appendChild(b);
-        });
-        stepContent.appendChild(grid);
-
-      } else if (state.step === 'select-suits') {
-        stepTitle.innerText = `Шаг 4: Выберите масти (${selectedSuitsTemp.length} из ${state.askedCount})`;
-        const grid = document.createElement('div');
-        grid.className = 'grid-btns suits';
-        const mySuitsOfRank = new Set(me.hand.filter(c => c.rank === state.askedRank).map(c => c.suit));
-
-        SUITS.forEach(s => {
-          const b = document.createElement('button');
-          b.type = 'button';
-          const isRed = s === '♥' || s === '♦';
-          b.className = 'choice-btn' + (isRed ? ' red' : '');
-          b.innerText = s;
-          if (mySuitsOfRank.has(s)) b.disabled = true;
-          if (selectedSuitsTemp.includes(s)) {
-            b.style.background = '#ffd54f';
-            b.style.color = '#111';
-          }
-          b.addEventListener('click', () => {
-            haptic('light');
-            if (selectedSuitsTemp.includes(s)) {
-              selectedSuitsTemp = selectedSuitsTemp.filter(x => x !== s);
-            } else if (selectedSuitsTemp.length < state.askedCount) {
-              selectedSuitsTemp.push(s);
-            }
-            if (selectedSuitsTemp.length === state.askedCount) {
-              submitGuess(state.askedCount, selectedSuitsTemp);
-            } else {
-              render();
-            }
-          });
-          grid.appendChild(b);
-        });
-        stepContent.appendChild(grid);
-      }
-    }
-
-    // 4. Модальное окно ответа Да/Нет (если спрашивают меня)
-    const modal = document.getElementById('modal-answer');
-    if (state.step === 'wait-answer' && state.targetId === state.myId && !state.gameOver) {
-      const asker = state.players[state.turnIndex];
-      const hasCard = me.hand.some(c => c.rank === state.askedRank);
-      document.getElementById('modal-question-text').innerHTML =
-        `Игрок <b>${asker.name}</b> спрашивает у вас номинал <b>«${state.askedRank}»</b>.`;
-      document.getElementById('btn-answer-yes').disabled = !hasCard;
-      document.getElementById('btn-answer-no').disabled = hasCard;
-      modal.classList.add('open');
-    } else {
-      modal.classList.remove('open');
-    }
-
-    // 5. Мои карты
-    if (me) {
-      document.getElementById('my-cards-count').innerText = me.hand.length;
-      document.getElementById('my-chests-count').innerText =
-        me.chests.length > 0 ? `${me.chests.length} (${me.chests.join(', ')})` : '0';
-
-      const handWrap = document.getElementById('my-hand');
-      handWrap.innerHTML = '';
-      const sortedHand = [...me.hand].sort((a, b) => state.ranks.indexOf(a.rank) - state.ranks.indexOf(b.rank));
-      sortedHand.forEach(c => {
-        const div = document.createElement('div');
-        const isRed = c.suit === '♥' || c.suit === '♦';
-        div.className = 'mini-card' + (isRed ? ' red' : '');
-        div.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
-        handWrap.appendChild(div);
-      });
-    }
-  }
-
-  function syncAndRender() {
-    if (state.mode === 'mp-host') {
-      connections.forEach(conn => {
-        if (conn.open) {
-          conn.send({ type: 'state-sync', state });
-        }
-      });
-    }
-    render();
-  }
-
-  // --- ЗАПУСК ОДИНОЧНОЙ ИГРЫ ---
-  function startSoloGame() {
-    clearTimeout(botTimer);
-    const nick = nickInput.value.trim() || 'Игрок';
-    const count = parseInt(document.getElementById('select-count').value, 10);
-
-    state.mode = 'solo';
-    state.myId = 'p0';
-    state.players = [{ id: 'p0', name: nick, isBot: false, hand: [], chests: [] }];
-    for (let i = 1; i < count; i++) {
-      state.players.push({ id: `p${i}`, name: `Пользователь ${i}`, isBot: true, hand: [], chests: [] });
-    }
-
-    const deck = buildDeck(count);
-    let idx = 0;
-    while (deck.length > 0) {
-      state.players[idx % count].hand.push(deck.pop());
-      idx++;
-    }
-
-    state.players.forEach(p => checkChestsForPlayer(p));
-    initBotMemory();
-    state.turnIndex = 0;
-    state.step = 'select-target';
-    state.gameOver = false;
-    state.log = `Колода на ${state.ranks.length * 4} карт роздана! Ваш ход, ${nick}.`;
-
-    showScreen('screen-game');
-    render();
-  }
-
-  // --- МУЛЬТИПЛЕЕР (PEERJS) ---
-  function updateLobbyUI() {
-    document.getElementById('lobby-code').innerText = roomCode;
-    const list = document.getElementById('lobby-players');
-    list.innerHTML = '';
-    state.players.forEach(p => {
-      const item = document.createElement('div');
-      item.className = 'lobby-item';
-      item.innerText = `${p.isBot ? '🤖' : '👤'} ${p.name}`;
-      list.appendChild(item);
-    });
-
-    const isHost = state.mode === 'mp-host';
-    document.getElementById('btn-add-bot').style.display = isHost && state.players.length < 5 ? 'block' : 'none';
-    document.getElementById('btn-start-mp').style.display = isHost && state.players.length >= 2 ? 'block' : 'none';
-  }
-
-  function startMultiplayerGame() {
-    const count = state.players.length;
-    const deck = buildDeck(count);
-    state.players.forEach(p => { p.hand = []; p.chests = []; });
-
-    let idx = 0;
-    while (deck.length > 0) {
-      state.players[idx % count].hand.push(deck.pop());
-      idx++;
-    }
-    state.players.forEach(p => checkChestsForPlayer(p));
-    initBotMemory();
-    state.turnIndex = 0;
-    state.step = 'select-target';
-    state.gameOver = false;
-    state.log = `Игра началась! Колода: ${state.ranks.length * 4} карт. Первым ходит ${state.players[0].name}.`;
-
-    showScreen('screen-game');
-    connections.forEach(c => { if (c.open) c.send({ type: 'game-started', state }); });
-    render();
-  }
-
-  // --- ПРИВЯЗКА ВСЕХ КНОПОК МЕНЮ ---
   document.getElementById('btn-start-solo').addEventListener('click', startSoloGame);
-
-  document.getElementById('btn-open-mp').addEventListener('click', () => {
-    document.getElementById('mp-status').innerText = '';
-    showScreen('screen-mp');
-  });
-
+  document.getElementById('btn-open-mp').addEventListener('click', () => showScreen('screen-mp-menu'));
   document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
+  document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
+  document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
+  document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
+  document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
+  document.getElementById('btn-add-bot').addEventListener('click', addBotToLobby);
+  document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
+  document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
+  document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
+});
 
-  document.getElementById('btn-share-bot').addEventListener('click', () => {
-    const url = 'https://t.me/share/url?url=' + encodeURIComponent('https://t.me/Sunducc_Bot') +
-      '&text=' + encodeURIComponent('Го сыграем в карточную игру «Сундучки» прямо в Telegram!');
-    if (tg) tg.openTelegramLink(url);
-    else window.open(url, '_blank');
+function getNick() {
+  const val = document.getElementById('player-nick').value.trim();
+  return val || 'Игрок';
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function shareToTelegram(code) {
+  const botUrl = 'https://t.me/Sunducc_Bot';
+  const text = code
+    ? `Заходи играть в «Сундучки»! Мой код комнаты: ${code}`
+    : `Сыграем в карточную игру «Сундучки» прямо в Telegram!`;
+  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(botUrl)}&text=${encodeURIComponent(text)}`;
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink(shareUrl);
+  } else {
+    window.open(shareUrl, '_blank');
+  }
+}
+
+function startSoloGame() {
+  haptic('medium');
+  state.mode = 'solo';
+  state.myId = 'p0';
+  state.myNick = getNick();
+
+  const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
+  state.players = [{ id: 'p0', name: state.myNick, isBot: false, hand: [], chests: [] }];
+  for (let i = 1; i < totalPlayers; i++) {
+    state.players.push({ id: 'p' + i, name: `Пользователь ${i}`, isBot: true, hand: [], chests: [] });
+  }
+
+  initMatch();
+}
+
+function createOnlineRoom() {
+  if (typeof Peer === 'undefined') { alert('Модуль сети ещё загружается, подождите 2 секунды и нажмите снова.'); return; }
+  haptic('medium');
+  state.mode = 'host';
+  state.myId = 'host';
+  state.myNick = getNick();
+  roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+
+  state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
+  connections = {};
+
+  document.getElementById('lobby-code').innerText = roomCode;
+  document.getElementById('host-controls').style.display = 'flex';
+  document.getElementById('guest-wait').style.display = 'none';
+  showScreen('screen-lobby');
+  renderLobby();
+
+  if (peer) peer.destroy();
+  peer = new Peer('sunduchki-tg-' + roomCode);
+
+  peer.on('connection', conn => {
+    conn.on('data', data => handleHostData(conn, data));
+    conn.on('close', () => {
+      state.players = state.players.filter(p => p.id !== conn.peer);
+      delete connections[conn.peer];
+      broadcastLobby();
+    });
   });
+}
 
-  document.getElementById('btn-invite-friend').addEventListener('click', () => {
-    const url = 'https://t.me/share/url?url=' + encodeURIComponent('https://t.me/Sunducc_Bot') +
-      '&text=' + encodeURIComponent(`Заходи в «Сундучки»! Мой код комнаты: ${roomCode}`);
-    if (tg) tg.openTelegramLink(url);
-    else window.open(url, '_blank');
-  });
+function joinOnlineRoom() {
+  if (typeof Peer === 'undefined') { alert('Модуль сети ещё загружается, подождите 2 секунды и нажмите снова.'); return; }
+  const code = document.getElementById('join-code').value.trim();
+  if (code.length !== 4) { alert('Введите 4-значный код комнаты'); return; }
+  haptic('medium');
+  state.mode = 'guest';
+  state.myNick = getNick();
+  roomCode = code;
 
-  document.getElementById('btn-create-room').addEventListener('click', () => {
-    const statusEl = document.getElementById('mp-status');
-    statusEl.innerText = 'Создаём комнату...';
-    roomCode = String(Math.floor(1000 + Math.random() * 9000));
-    if (peer) peer.destroy();
-    peer = new Peer('sunduchki-room-' + roomCode);
+  if (peer) peer.destroy();
+  peer = new Peer();
 
-    peer.on('open', () => {
-      state.mode = 'mp-host';
-      state.myId = 'host';
-      const nick = nickInput.value.trim() || 'Создатель';
-      state.players = [{ id: 'host', name: nick, isBot: false, hand: [], chests: [] }];
-      connections = [];
+  peer.on('open', id => {
+    state.myId = id;
+    hostConn = peer.connect('sunduchki-tg-' + code);
+    hostConn.on('open', () => {
+      hostConn.send({ type: 'JOIN', nick: state.myNick });
+      document.getElementById('lobby-code').innerText = code;
+      document.getElementById('host-controls').style.display = 'none';
+      document.getElementById('guest-wait').style.display = 'block';
       showScreen('screen-lobby');
-      updateLobbyUI();
     });
+    hostConn.on('data', data => handleGuestData(data));
+    hostConn.on('error', () => alert('Не удалось подключиться к комнате'));
+  });
+}
 
-    peer.on('connection', conn => {
-      if (state.players.length >= 5) {
-        conn.close();
-        return;
-      }
-      connections.push(conn);
-      conn.on('data', data => {
-        if (data.type === 'join') {
-          state.players.push({ id: conn.peer, name: data.name, isBot: false, hand: [], chests: [] });
-          updateLobbyUI();
-          connections.forEach(c => { if (c.open) c.send({ type: 'lobby-update', players: state.players, roomCode }); });
-        } else if (data.type === 'player-ask') {
-          const asker = getPlayer(state.players[state.turnIndex].id);
-          const target = getPlayer(data.targetId);
-          state.targetId = data.targetId;
-          state.askedRank = data.rank;
-          state.log = `👤 ${asker.name} спрашивает у ${target.name}: «Есть ли ${data.rank}?»`;
-          if (target.isBot) {
-            const has = target.hand.some(c => c.rank === data.rank);
-            if (!has) {
-              state.log = `🤖 ${target.name} отвечает: «Нет, ${data.rank} у меня нет».`;
-              recordTableEvent(asker.id, target.id, data.rank, false, false);
-              syncAndRender();
-              setTimeout(() => advanceTurn(false), 2000);
-            } else {
-              state.log = `🤖 ${target.name} отвечает: «Да, ${data.rank} есть!»`;
-              state.step = 'select-count';
-              syncAndRender();
-            }
-          } else {
-            state.step = 'wait-answer';
-            syncAndRender();
-          }
-        } else if (data.type === 'player-answer') {
-          handlePlayerAnswer(data.answeredYes);
-        } else if (data.type === 'player-guess') {
-          submitGuess(data.count, data.suits);
-        }
-      });
-    });
+function addBotToLobby() {
+  if (state.players.length >= 5) return;
+  haptic('light');
+  const botNum = state.players.filter(p => p.isBot).length + 1;
+  state.players.push({ id: 'bot_' + Date.now() + '_' + botNum, name: `Пользователь ${botNum}`, isBot: true, hand: [], chests: [] });
+  broadcastLobby();
+}
 
-    peer.on('error', err => {
-      statusEl.innerText = 'Ошибка сети: ' + err.type + '. Попробуйте ещё раз.';
-    });
+function broadcastLobby() {
+  renderLobby();
+  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
+  Object.values(connections).forEach(c => c.send({ type: 'LOBBY', players: list }));
+}
+
+function renderLobby() {
+  const ul = document.getElementById('lobby-players');
+  ul.innerHTML = '';
+  state.players.forEach(p => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${p.isBot ? '🤖' : '👤'} ${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
+    ul.appendChild(li);
+  });
+  document.getElementById('lobby-count').innerText = state.players.length;
+  document.getElementById('btn-start-mp').disabled = state.players.length < 2;
+  document.getElementById('btn-add-bot').disabled = state.players.length >= 5;
+}
+
+function startMultiplayerGame() {
+  if (state.players.length < 2) return;
+  haptic('medium');
+  initMatch();
+}
+
+function leaveRoom() {
+  if (peer) peer.destroy();
+  showScreen('screen-menu');
+}
+
+function quitToMenu() {
+  state.step = 'GAME_OVER';
+  if (peer) peer.destroy();
+  showScreen('screen-menu');
+}
+
+function initMatch() {
+  const count = state.players.length;
+  state.activeRanks = count <= 3 ? RANKS_36 : RANKS_52;
+  document.getElementById('deck-info').innerText = `Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.)`;
+
+  let deck = [];
+  for (let r of state.activeRanks) {
+    for (let s of SUITS) deck.push({ rank: r, suit: s });
+  }
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  state.players.forEach(p => { p.hand = []; p.chests = []; });
+  let idx = 0;
+  while (deck.length > 0) {
+    state.players[idx % count].hand.push(deck.pop());
+    idx++;
+  }
+
+  state.botMemory = {};
+  state.players.forEach(p => {
+    if (p.isBot) {
+      state.botMemory[p.id] = { noRank: new Set(), hasRank: new Set(), askedExact: new Set() };
+    }
   });
 
-  document.getElementById('btn-join-room').addEventListener('click', () => {
-    const code = document.getElementById('input-room-code').value.trim();
-    const statusEl = document.getElementById('mp-status');
-    if (code.length !== 4) {
-      statusEl.innerText = 'Введите ровно 4 цифры кода комнаты!';
+  state.players.forEach(p => checkChests(p, false));
+  state.turnIndex = 0;
+  state.pendingAsk = null;
+
+  showScreen('screen-game');
+  startTurn();
+}
+
+function checkChests(player, announce = true) {
+  const counts = {};
+  player.hand.forEach(c => counts[c.rank] = (counts[c.rank] || 0) + 1);
+  for (let r in counts) {
+    if (counts[r] === 4) {
+      player.hand = player.hand.filter(c => c.rank !== r);
+      player.chests.push(r);
+      if (announce) {
+        haptic('success');
+        setLog(`📦 ${player.name} собрал(а) сундучок из «${r}»!`);
+      }
+    }
+  }
+}
+
+function getAllCollectedRanks() {
+  const set = new Set();
+  state.players.forEach(p => p.chests.forEach(r => set.add(r)));
+  return set;
+}
+
+function checkGameOver() {
+  const totalChests = state.players.reduce((sum, p) => sum + p.chests.length, 0);
+  if (totalChests === state.activeRanks.length) {
+    state.step = 'GAME_OVER';
+    const sorted = [...state.players].sort((a, b) => b.chests.length - a.chests.length);
+    const winner = sorted[0];
+    setLog(`🏆 Игра окончена! Победил(а) ${winner.name} (${winner.chests.length} сундучков)!`);
+    document.getElementById('turn-panel').style.display = 'none';
+    document.getElementById('answer-modal').style.display = 'none';
+    syncState();
+    return true;
+  }
+  return false;
+}
+
+function startTurn() {
+  if (checkGameOver()) return;
+
+  let guard = 0;
+  while (state.players[state.turnIndex].hand.length === 0 && guard < state.players.length) {
+    state.turnIndex = (state.turnIndex + 1) % state.players.length;
+    guard++;
+  }
+
+  const current = state.players[state.turnIndex];
+  state.pendingAsk = null;
+
+  if (current.isBot) {
+    state.step = 'BOT_THINKING';
+    setLog(`🤖 Ходит ${current.name}. Думает...`);
+    syncState();
+    setTimeout(() => executeBotTurn(current), BOT_DELAY);
+  } else {
+    state.step = 'SELECT_TARGET';
+    if (current.id === state.myId) haptic('light');
+    setLog(`🎯 Ход игрока ${current.name}. Выберите, у кого спросить карту.`);
+    syncState();
+  }
+}
+
+function animateCardTransfer(fromId, toId, cardsToFly, showFace) {
+  const fromEl = fromId === state.myId
+    ? document.getElementById('my-hand-zone')
+    : document.getElementById('badge-' + fromId);
+  const toEl = toId === state.myId
+    ? document.getElementById('my-hand-zone')
+    : document.getElementById('badge-' + toId);
+
+  if (!fromEl || !toEl) return;
+
+  const r1 = fromEl.getBoundingClientRect();
+  const r2 = toEl.getBoundingClientRect();
+
+  const startX = r1.left + r1.width / 2 - 21;
+  const startY = r1.top + r1.height / 2 - 30;
+  const endX = r2.left + r2.width / 2 - 21;
+  const endY = r2.top + r2.height / 2 - 30;
+
+  cardsToFly.forEach((c, idx) => {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      const isRed = c.suit === '♥' || c.suit === '♦';
+      el.className = 'flying-card' + (!showFace ? ' back' : (isRed ? ' red' : ''));
+      if (showFace) {
+        el.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
+      }
+      el.style.left = startX + 'px';
+      el.style.top = startY + 'px';
+      document.body.appendChild(el);
+
+      requestAnimationFrame(() => {
+        el.style.left = (endX + (idx - 1) * 14) + 'px';
+        el.style.top = endY + 'px';
+        el.style.transform = 'scale(1.1) rotate(' + ((idx - 1) * 8) + 'deg)';
+      });
+
+      setTimeout(() => el.remove(), 800);
+    }, idx * 160);
+  });
+}
+
+function recordTableEvent(fromId, toId, rank, gotCards, guessedCount, guessedSuits) {
+  Object.keys(state.botMemory).forEach(botId => {
+    const mem = state.botMemory[botId];
+    mem.hasRank.add(`${fromId}_${rank}`);
+    mem.noRank.add(`${toId}_${rank}`);
+    if (botId === fromId && guessedCount && guessedSuits) {
+      mem.askedExact.add(`${toId}_${rank}_${guessedCount}_${guessedSuits.slice().sort().join('')}`);
+    }
+  });
+}
+
+function executeBotTurn(bot) {
+  if (state.step === 'GAME_OVER') return;
+  const targets = state.players.filter(p => p.id !== bot.id && p.hand.length > 0);
+  if (targets.length === 0) { startTurn(); return; }
+
+  const collected = getAllCollectedRanks();
+  const availableRanks = state.activeRanks.filter(r => !collected.has(r));
+  const mem = state.botMemory[bot.id];
+
+  let chosenTarget = null;
+  let chosenRank = null;
+
+  const myRanks = [...new Set(bot.hand.map(c => c.rank))];
+  for (let r of myRanks) {
+    for (let t of targets) {
+      if (mem.hasRank.has(`${t.id}_${r}`) && !mem.noRank.has(`${t.id}_${r}`)) {
+        chosenTarget = t;
+        chosenRank = r;
+        break;
+      }
+    }
+    if (chosenTarget) break;
+  }
+
+  if (!chosenTarget && myRanks.length > 0) {
+    const shuffledRanks = [...myRanks].sort(() => Math.random() - 0.5);
+    for (let r of shuffledRanks) {
+      const validTargets = targets.filter(t => !mem.noRank.has(`${t.id}_${r}`));
+      if (validTargets.length > 0) {
+        chosenRank = r;
+        chosenTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
+        break;
+      }
+    }
+  }
+
+  if (!chosenTarget) {
+    chosenTarget = targets[Math.floor(Math.random() * targets.length)];
+    chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
+  }
+
+  state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
+  setLog(`🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`);
+  syncState();
+
+  if (chosenTarget.id === state.myId) {
+    state.step = 'WAIT_ANSWER';
+    syncState();
+  } else if (!chosenTarget.isBot) {
+    state.step = 'WAIT_ANSWER';
+    syncState();
+  } else {
+    setTimeout(() => resolveHasRankAnswer(bot, chosenTarget, chosenRank), BOT_STEP_DELAY);
+  }
+}
+
+function resolveHasRankAnswer(asker, target, rank) {
+  const matching = target.hand.filter(c => c.rank === rank);
+  if (matching.length === 0) {
+    setLog(`❌ ${target.name} отвечает: «Нет ${rank}». Ход переходит дальше.`);
+    recordTableEvent(asker.id, target.id, rank, false);
+    syncState();
+    setTimeout(() => {
+      state.turnIndex = (state.turnIndex + 1) % state.players.length;
+      startTurn();
+    }, BOT_STEP_DELAY);
+  } else {
+    setLog(`✅ ${target.name} отвечает: «Да, есть ${rank}!» ${asker.name} угадывает количество...`);
+    syncState();
+    setTimeout(() => {
+      const mySame = asker.hand.filter(c => c.rank === rank).length;
+      const maxPossible = Math.min(3, 4 - mySame);
+      const guessCount = Math.floor(Math.random() * maxPossible) + 1;
+
+      setLog(`🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»`);
+      syncState();
+
+      setTimeout(() => {
+        if (guessCount !== matching.length) {
+          setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
+          syncState();
+          setTimeout(() => {
+            state.turnIndex = (state.turnIndex + 1) % state.players.length;
+            startTurn();
+          }, BOT_STEP_DELAY);
+        } else {
+          setLog(`🎯 Количество угадано (${guessCount} шт.)! ${asker.name} называет масти...`);
+          syncState();
+
+          setTimeout(() => {
+            const mySuits = asker.hand.filter(c => c.rank === rank).map(c => c.suit);
+            const possibleSuits = SUITS.filter(s => !mySuits.includes(s)).sort(() => Math.random() - 0.5);
+            const guessSuits = possibleSuits.slice(0, guessCount);
+
+            setLog(`♠️ ${asker.name} называет: ${guessSuits.join(', ')}`);
+            syncState();
+
+            setTimeout(() => {
+              const targetSuits = matching.map(c => c.suit);
+              const allMatched = guessSuits.every(s => targetSuits.includes(s));
+
+              if (allMatched) {
+                const showFace = asker.id === state.myId || target.id === state.myId;
+                animateCardTransfer(target.id, asker.id, matching, showFace);
+                if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
+
+                target.hand = target.hand.filter(c => c.rank !== rank);
+                asker.hand.push(...matching);
+                recordTableEvent(asker.id, target.id, rank, true, guessCount, guessSuits);
+
+                setLog(`🎉 ${asker.name} угадал(а) всё и забирает карты у ${target.name}!`);
+                checkChests(asker, true);
+                syncState();
+                setTimeout(() => startTurn(), BOT_STEP_DELAY);
+              } else {
+                recordTableEvent(asker.id, target.id, rank, false, guessCount, guessSuits);
+                setLog(`❌ Масти не совпали! Ход переходит дальше.`);
+                syncState();
+                setTimeout(() => {
+                  state.turnIndex = (state.turnIndex + 1) % state.players.length;
+                  startTurn();
+                }, BOT_STEP_DELAY);
+              }
+            }, BOT_STEP_DELAY);
+          }, BOT_STEP_DELAY);
+        }
+      }, BOT_STEP_DELAY);
+    }, BOT_STEP_DELAY);
+  }
+}
+
+function handleHumanChoice(action, payload) {
+  if (state.mode === 'guest') {
+    hostConn.send({ type: 'ACTION', action, payload });
+    return;
+  }
+  processHumanAction(state.myId, action, payload);
+}
+
+function processHumanAction(playerId, action, payload) {
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return;
+
+  if (action === 'SELECT_TARGET') {
+    state.pendingAsk = { fromId: playerId, toId: payload, rank: null, count: 0, suits: [] };
+    state.step = 'SELECT_RANK';
+    const target = state.players.find(p => p.id === payload);
+    setLog(`${player.name} выбрал(а) ${target.name}. Выбор номинала...`);
+    syncState();
+  }
+  else if (action === 'SELECT_RANK') {
+    state.pendingAsk.rank = payload;
+    const target = state.players.find(p => p.id === state.pendingAsk.toId);
+    setLog(`❓ ${player.name} спрашивает у ${target.name}: «Есть ли ${payload}?»`);
+
+    if (target.isBot) {
+      state.step = 'BOT_THINKING';
+      syncState();
+      setTimeout(() => {
+        const has = target.hand.some(c => c.rank === payload);
+        if (!has) {
+          recordTableEvent(playerId, target.id, payload, false);
+          setLog(`❌ ${target.name} отвечает: «Нет ${payload}».`);
+          syncState();
+          setTimeout(() => {
+            state.turnIndex = (state.turnIndex + 1) % state.players.length;
+            startTurn();
+          }, 2000);
+        } else {
+          state.step = 'SELECT_COUNT';
+          setLog(`✅ ${target.name} отвечает: «Да, есть!» Угадайте количество (1–3):`);
+          syncState();
+        }
+      }, 1500);
+    } else {
+      state.step = 'WAIT_ANSWER';
+      syncState();
+    }
+  }
+  else if (action === 'ANSWER_YES_NO') {
+    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+    const target = state.players.find(p => p.id === state.pendingAsk.toId);
+    const rank = state.pendingAsk.rank;
+
+    if (!payload) {
+      recordTableEvent(asker.id, target.id, rank, false);
+      setLog(`❌ ${target.name} отвечает: «Нет ${rank}».`);
+      syncState();
+      setTimeout(() => {
+        state.turnIndex = (state.turnIndex + 1) % state.players.length;
+        startTurn();
+      }, 2000);
+    } else {
+      if (asker.isBot) {
+        state.step = 'BOT_THINKING';
+        resolveHasRankAnswer(asker, target, rank);
+      } else {
+        state.step = 'SELECT_COUNT';
+        setLog(`✅ ${target.name} отвечает: «Да, есть!» ${asker.name} угадывает количество...`);
+        syncState();
+      }
+    }
+  }
+  else if (action === 'SELECT_COUNT') {
+    const count = payload;
+    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+    const target = state.players.find(p => p.id === state.pendingAsk.toId);
+    const rank = state.pendingAsk.rank;
+    const actualCount = target.hand.filter(c => c.rank === rank).length;
+
+    if (count !== actualCount) {
+      setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
+      syncState();
+      setTimeout(() => {
+        state.turnIndex = (state.turnIndex + 1) % state.players.length;
+        startTurn();
+      }, 2200);
+    } else {
+      state.pendingAsk.count = count;
+      state.pendingAsk.suits = [];
+      state.step = 'SELECT_SUITS';
+      setLog(`🎯 Верно (${count} шт.)! Теперь выберите масть (${count} шт.):`);
+      syncState();
+    }
+  }
+  else if (action === 'SELECT_SUIT') {
+    const suit = payload;
+    const req = state.pendingAsk;
+    if (!req.suits.includes(suit)) req.suits.push(suit);
+
+    if (req.suits.length < req.count) {
+      syncState();
       return;
     }
-    statusEl.innerText = 'Подключаемся к комнате ' + code + '...';
-    if (peer) peer.destroy();
-    peer = new Peer();
 
-    peer.on('open', myPeerId => {
-      state.mode = 'mp-client';
-      state.myId = myPeerId;
-      roomCode = code;
-      hostConn = peer.connect('sunduchki-room-' + code);
+    const asker = state.players.find(p => p.id === req.fromId);
+    const target = state.players.find(p => p.id === req.toId);
+    const matching = target.hand.filter(c => c.rank === req.rank);
+    const targetSuits = matching.map(c => c.suit);
+    const allMatched = req.suits.every(s => targetSuits.includes(s));
 
-      hostConn.on('open', () => {
-        const nick = nickInput.value.trim() || 'Гость';
-        hostConn.send({ type: 'join', name: nick });
-        showScreen('screen-lobby');
-      });
+    if (allMatched) {
+      const showFace = asker.id === state.myId || target.id === state.myId;
+      animateCardTransfer(target.id, asker.id, matching, showFace);
+      if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
 
-      hostConn.on('data', data => {
-        if (data.type === 'lobby-update') {
-          state.players = data.players;
-          roomCode = data.roomCode;
-          updateLobbyUI();
-        } else if (data.type === 'game-started') {
-          Object.assign(state, data.state);
-          state.mode = 'mp-client';
-          state.myId = myPeerId;
-          showScreen('screen-game');
-          render();
-        } else if (data.type === 'state-sync') {
-          Object.assign(state, data.state);
-          state.mode = 'mp-client';
-          state.myId = myPeerId;
-          render();
-        }
-      });
+      target.hand = target.hand.filter(c => c.rank !== req.rank);
+      asker.hand.push(...matching);
+      recordTableEvent(asker.id, target.id, req.rank, true, req.count, req.suits);
 
-      hostConn.on('error', () => {
-        statusEl.innerText = 'Не удалось подключиться к комнате.';
+      setLog(`🎉 ${asker.name} угадал(а) все карты и забирает их! Дополнительный ход!`);
+      checkChests(asker, true);
+      syncState();
+      setTimeout(() => startTurn(), 1800);
+    } else {
+      recordTableEvent(asker.id, target.id, req.rank, false, req.count, req.suits);
+      setLog(`❌ Масть не совпала (названо: ${req.suits.join(', ')}). Ход переходит дальше.`);
+      syncState();
+      setTimeout(() => {
+        state.turnIndex = (state.turnIndex + 1) % state.players.length;
+        startTurn();
+      }, 2200);
+    }
+  }
+}
+
+function handleHostData(conn, data) {
+  if (data.type === 'JOIN') {
+    if (state.players.length >= 5) return;
+    connections[conn.peer] = conn;
+    state.players.push({ id: conn.peer, name: data.nick || 'Гость', isBot: false, hand: [], chests: [] });
+    broadcastLobby();
+  } else if (data.type === 'ACTION') {
+    processHumanAction(conn.peer, data.action, data.payload);
+  }
+}
+
+function handleGuestData(data) {
+  if (data.type === 'LOBBY') {
+    state.players = data.players;
+    renderLobby();
+  } else if (data.type === 'STATE') {
+    state.players = data.players;
+    state.activeRanks = data.activeRanks;
+    state.turnIndex = data.turnIndex;
+    state.step = data.step;
+    state.pendingAsk = data.pendingAsk;
+    document.getElementById('game-log').innerText = data.log;
+    showScreen('screen-game');
+    renderGame();
+  } else if (data.type === 'ANIM') {
+    const showFace = data.fromId === state.myId || data.toId === state.myId;
+    animateCardTransfer(data.fromId, data.toId, data.cards, showFace);
+  }
+}
+
+function broadcastAnim(fromId, toId, cards) {
+  Object.values(connections).forEach(c => c.send({ type: 'ANIM', fromId, toId, cards }));
+}
+
+function syncState() {
+  renderGame();
+  if (state.mode === 'host') {
+    const logText = document.getElementById('game-log').innerText;
+    Object.entries(connections).forEach(([peerId, conn]) => {
+      const sanitizedPlayers = state.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        isBot: p.isBot,
+        chests: p.chests,
+        handCount: p.hand.length,
+        hand: p.id === peerId ? p.hand : []
+      }));
+      conn.send({
+        type: 'STATE',
+        players: sanitizedPlayers,
+        activeRanks: state.activeRanks,
+        turnIndex: state.turnIndex,
+        step: state.step,
+        pendingAsk: state.pendingAsk,
+        log: logText
       });
     });
+  }
+}
+
+function setLog(text) {
+  document.getElementById('game-log').innerText = text;
+}
+
+function renderGame() {
+  const me = state.players.find(p => p.id === state.myId);
+  if (!me) return;
+
+  const currentPlayer = state.players[state.turnIndex];
+  const isMyTurn = currentPlayer && currentPlayer.id === state.myId;
+
+  const oppArea = document.getElementById('opponents-area');
+  oppArea.innerHTML = '';
+  state.players.forEach(p => {
+    if (p.id === state.myId) return;
+    const count = p.hand ? (p.hand.length || p.handCount || 0) : (p.handCount || 0);
+    const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
+
+    const div = document.createElement('div');
+    div.id = 'badge-' + p.id;
+    div.className = 'player-badge' +
+      (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
+      (canSelect ? ' selectable' : '');
+    div.innerHTML = `
+      <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
+      <div class="p-stats">
+        <span>🃏 Карт: <b>${count}</b></span>
+        <span>📦 Сунд: <b>${p.chests.length}</b></span>
+      </div>
+    `;
+    if (canSelect) {
+      div.onclick = () => { haptic('light'); handleHumanChoice('SELECT_TARGET', p.id); };
+    }
+    oppArea.appendChild(div);
   });
 
-  document.getElementById('btn-add-bot').addEventListener('click', () => {
-    if (state.players.length >= 5) return;
-    const botNum = state.players.filter(p => p.isBot).length + 1;
-    state.players.push({ id: 'bot_' + Date.now(), name: `Пользователь ${botNum}`, isBot: true, hand: [], chests: [] });
-    updateLobbyUI();
-    connections.forEach(c => { if (c.open) c.send({ type: 'lobby-update', players: state.players, roomCode }); });
+  const ansModal = document.getElementById('answer-modal');
+  let highlightRank = null;
+
+  if (state.step === 'WAIT_ANSWER' && state.pendingAsk && state.pendingAsk.toId === state.myId) {
+    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+    highlightRank = state.pendingAsk.rank;
+    const hasCard = me.hand.some(c => c.rank === highlightRank);
+
+    ansModal.style.display = 'block';
+    document.getElementById('answer-question').innerText =
+      `${asker.name} спрашивает у вас: «Есть ли ${highlightRank}?»`;
+
+    const btnYes = document.getElementById('btn-ans-yes');
+    const btnNo = document.getElementById('btn-ans-no');
+
+    btnYes.disabled = !hasCard;
+    btnNo.disabled = hasCard;
+
+    btnYes.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', true); };
+    btnNo.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', false); };
+  } else {
+    ansModal.style.display = 'none';
+  }
+
+  const turnPanel = document.getElementById('turn-panel');
+  const turnChoices = document.getElementById('turn-choices');
+  const turnPrompt = document.getElementById('turn-prompt');
+
+  if (isMyTurn && ['SELECT_TARGET', 'SELECT_RANK', 'SELECT_COUNT', 'SELECT_SUITS'].includes(state.step)) {
+    turnPanel.style.display = 'block';
+    turnChoices.innerHTML = '';
+
+    if (state.step === 'SELECT_TARGET') {
+      turnPrompt.innerText = '👆 Нажмите на карточку соперника сверху, чтобы задать вопрос';
+    }
+    else if (state.step === 'SELECT_RANK') {
+      turnPrompt.innerText = 'Выберите номинал карты (можно спросить любой):';
+      const grid = document.createElement('div');
+      grid.className = 'grid-ranks';
+      const collected = getAllCollectedRanks();
+      const myRanks = new Set(me.hand.map(c => c.rank));
+
+      state.activeRanks.forEach(r => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn' + (myRanks.has(r) ? ' in-hand' : '');
+        btn.innerText = r;
+        btn.disabled = collected.has(r);
+        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_RANK', r); };
+        grid.appendChild(btn);
+      });
+      turnChoices.appendChild(grid);
+    }
+    else if (state.step === 'SELECT_COUNT') {
+      turnPrompt.innerText = `Сколько карт «${state.pendingAsk.rank}» у соперника? (от 1 до 3):`;
+      const grid = document.createElement('div');
+      grid.className = 'grid-nums';
+      [1, 2, 3].forEach(num => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerText = `${num} шт.`;
+        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_COUNT', num); };
+        grid.appendChild(btn);
+      });
+      turnChoices.appendChild(grid);
+    }
+    else if (state.step === 'SELECT_SUITS') {
+      const rem = state.pendingAsk.count - state.pendingAsk.suits.length;
+      turnPrompt.innerText = `Выберите масть (осталось выбрать: ${rem}):`;
+      const grid = document.createElement('div');
+      grid.className = 'grid-suits';
+      const mySuits = me.hand.filter(c => c.rank === state.pendingAsk.rank).map(c => c.suit);
+
+      SUITS.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.style.color = (s === '♥' || s === '♦') ? '#ff8a80' : '#fff';
+        btn.innerText = s;
+        btn.disabled = mySuits.includes(s) || state.pendingAsk.suits.includes(s);
+        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_SUIT', s); };
+        grid.appendChild(btn);
+      });
+      turnChoices.appendChild(grid);
+    }
+  } else {
+    turnPanel.style.display = 'none';
+  }
+
+  document.getElementById('my-name-label').innerText = `👤 ${me.name}`;
+  document.getElementById('my-chests').innerText = me.chests.length;
+  document.getElementById('my-cards-count').innerText = me.hand.length;
+
+  const cardsWrap = document.getElementById('my-cards');
+  cardsWrap.innerHTML = '';
+  const sortedHand = [...me.hand].sort((a, b) => state.activeRanks.indexOf(a.rank) - state.activeRanks.indexOf(b.rank));
+
+  sortedHand.forEach(c => {
+    const div = document.createElement('div');
+    const isRed = c.suit === '♥' || c.suit === '♦';
+    const isHighlighted = highlightRank && c.rank === highlightRank;
+    div.className = 'card' + (isRed ? ' red' : '') + (isHighlighted ? ' highlight' : '');
+    div.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
+    cardsWrap.appendChild(div);
   });
-
-  document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
-
-  document.getElementById('btn-leave-lobby').addEventListener('click', () => {
-    if (peer) peer.destroy();
-    showScreen('screen-menu');
-  });
-
-  document.getElementById('btn-exit-game').addEventListener('click', () => {
-    clearTimeout(botTimer);
-    if (peer) peer.destroy();
-    showScreen('screen-menu');
-  });
-
-  document.getElementById('btn-answer-yes').addEventListener('click', () => handlePlayerAnswer(true));
-  document.getElementById('btn-answer-no').addEventListener('click', () => handlePlayerAnswer(false));
-});
+}
 </script>
 </body>
 </html>
