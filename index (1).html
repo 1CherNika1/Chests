@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Сундучки</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 10px;
+    background: var(--tg-theme-bg-color, #12352b);
+    color: var(--tg-theme-text-color, #ffffff);
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  .screen { display: none; flex-direction: column; flex: 1; gap: 10px; }
+  .screen.active { display: flex; }
+
+  .card-panel {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 14px;
+  }
+  h1 { margin: 0 0 8px 0; font-size: 22px; text-align: center; }
+  h2 { margin: 0 0 10px 0; font-size: 16px; }
+  label { display: block; font-size: 13px; opacity: 0.85; margin-bottom: 5px; }
+  input, select {
+    width: 100%; padding: 11px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.35); color: #fff; font-size: 16px; margin-bottom: 12px;
+  }
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: 11px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    background: #2e8b57; color: #fff; margin-bottom: 8px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: #2c5e8a; }
+  .btn-orange { background: #d97706; }
+  .btn-danger { background: #b91c1c; }
+  .btn-small { padding: 8px 12px; font-size: 13px; width: auto; margin: 0; }
+
+  .room-code-box {
+    text-align: center; background: rgba(0,0,0,0.35); padding: 12px;
+    border-radius: 12px; margin-bottom: 12px;
+  }
+  .room-code { font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #fbbf24; }
+  .lobby-list { list-style: none; padding: 0; margin: 0 0 12px 0; }
+  .lobby-list li {
+    padding: 9px 12px; background: rgba(0,0,0,0.25); border-radius: 8px;
+    margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;
+  }
+
+  /* Игровой стол */
+  .opponents-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+  }
+  .opp-card {
+    background: rgba(0,0,0,0.28); border: 2px solid transparent;
+    border-radius: 11px; padding: 9px; cursor: pointer; transition: 0.15s;
+  }
+  .opp-card.selected { border-color: #fbbf24; background: rgba(251, 191, 36, 0.18); }
+  .opp-card.active-turn { box-shadow: 0 0 0 2px #4ade80; }
+  .opp-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .opp-stats { font-size: 12px; opacity: 0.85; margin-top: 4px; display: flex; justify-content: space-between; }
+
+  .log-box {
+    background: rgba(0,0,0,0.45); border-left: 4px solid #fbbf24;
+    padding: 12px; border-radius: 10px; font-size: 14px; line-height: 1.4;
+    min-height: 58px; display: flex; align-items: center;
+  }
+
+  .deck-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; background: rgba(0,0,0,0.22); padding: 7px 12px; border-radius: 9px;
+  }
+
+  /* Панель запроса */
+  .ask-panel {
+    background: rgba(0,0,0,0.28); border-radius: 12px; padding: 10px;
+  }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; margin-bottom: 6px; }
+  .ranks-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 8px;
+  }
+  .rank-btn {
+    padding: 9px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08); color: #fff; font-weight: 700; font-size: 14px;
+    cursor: pointer;
+  }
+  .rank-btn.has-in-hand { background: rgba(46, 139, 87, 0.45); border-color: #4ade80; }
+  .rank-btn.selected { background: #fbbf24; color: #111; border-color: #fbbf24; }
+  .rank-btn:disabled { opacity: 0.22; cursor: not-allowed; }
+
+  .suits-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;
+  }
+  .suit-btn {
+    padding: 9px 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.1); color: #fff; font-size: 18px; font-weight: bold;
+    cursor: pointer;
+  }
+  .suit-btn.red { color: #ff7b7b; }
+  .suit-btn.selected { background: #fbbf24; color: #111; border-color: #fbbf24; }
+  .suit-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+
+  /* Мои карты */
+  .my-hand {
+    display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    padding: 8px; background: rgba(0,0,0,0.22); border-radius: 12px; min-height: 78px;
+  }
+  .playing-card {
+    width: 44px; height: 64px; background: #fff; color: #111;
+    border-radius: 6px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-weight: 800;
+    font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+    transition: transform 0.15s;
+  }
+  .playing-card.red { color: #dc2626; }
+  .playing-card.highlight { outline: 3px solid #fbbf24; transform: translateY(-4px); }
+
+  /* Модальное окно ответа Да / Нет */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78);
+    display: none; align-items: center; justify-content: center; padding: 16px; z-index: 100;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: #1a473a; border: 2px solid #fbbf24; border-radius: 16px;
+    padding: 18px; width: 100%; max-width: 380px; text-align: center;
+  }
+  .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; color: #fbbf24; }
+  .modal-text { font-size: 15px; line-height: 1.45; margin-bottom: 14px; }
+  .modal-hand-preview {
+    display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+    background: rgba(0,0,0,0.28); padding: 8px; border-radius: 10px; margin-bottom: 14px;
+  }
+  .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .anti-cheat-note { font-size: 12px; color: #fca5a5; margin-bottom: 10px; min-height: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ЭКРАН 1: ГЛАВНОЕ МЕНЮ -->
+<div id="screen-menu" class="screen active">
+  <div class="card-panel">
+    <h1>🃏 Сундучки</h1>
+    <p style="text-align:center; font-size:13px; opacity:0.8; margin-top:0;">Колода 52 карты • От 2 до 5 игроков</p>
+
+    <label>Ваш никнейм:</label>
+    <input type="text" id="player-nick" placeholder="Введите имя" maxlength="16">
+
+    <label>Количество ботов в одиночной игре:</label>
+    <select id="solo-bots-count">
+      <option value="1">1 бот (всего 2 игрока)</option>
+      <option value="2" selected>2 бота (всего 3 игрока)</option>
+      <option value="3">3 бота (всего 4 игрока)</option>
+      <option value="4">4 бота (всего 5 игроков)</option>
+    </select>
+
+    <button class="btn" onclick="startSoloGame()">🤖 Одиночная игра с ботами</button>
+  </div>
+
+  <div class="card-panel">
+    <h2>🌐 Мультиплеер с друзьями</h2>
+    <button class="btn btn-secondary" onclick="createOnlineRoom()">➕ Создать комнату</button>
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <input type="text" id="join-code-input" placeholder="Код (4 цифры)" maxlength="4" inputmode="numeric" style="margin:0; text-align:center; letter-spacing:3px; font-weight:bold;">
+      <button class="btn btn-orange" style="margin:0; width:140px;" onclick="joinOnlineRoom()">Войти</button>
+    </div>
+    <div id="net-status" style="font-size:12px; color:#fbbf24; margin-top:6px; text-align:center;"></div>
+  </div>
+</div>
+
+<!-- ЭКРАН 2: ЛОББИ МУЛЬТИПЛЕЕРА -->
+<div id="screen-lobby" class="screen">
+  <div class="card-panel">
+    <h2>Лобби комнаты</h2>
+    <div class="room-code-box">
+      <div style="font-size:12px; opacity:0.8;">Код для подключения друзей:</div>
+      <div class="room-code" id="lobby-room-code">----</div>
+    </div>
+
+    <ul class="lobby-list" id="lobby-players-list"></ul>
+
+    <div id="host-controls" style="display:none;">
+      <button class="btn btn-secondary" id="add-bot-btn" onclick="hostAddBot()">🤖 + Добавить бота (до 5 игроков)</button>
+      <button class="btn btn-orange" onclick="inviteTelegram()">📨 Пригласить друга в Telegram</button>
+      <button class="btn" id="start-multi-btn" onclick="hostStartMultiGame()">▶️ Начать игру</button>
+    </div>
+    <div id="guest-wait-msg" style="display:none; text-align:center; font-size:14px; opacity:0.85; padding:10px;">
+      Ожидаем, пока создатель комнаты запустит игру...
+    </div>
+
+    <button class="btn btn-danger" onclick="leaveToMenu()">Выйти в меню</button>
+  </div>
+</div>
+
+<!-- ЭКРАН 3: ИГРОВОЙ СТОЛ -->
+<div id="screen-game" class="screen">
+  <div class="deck-bar">
+    <span>🃏 В колоде: <strong id="deck-count">52</strong></span>
+    <span>📦 Сундучков: <strong id="total-chests">0</strong> / 13</span>
+    <button class="btn btn-danger btn-small" onclick="leaveToMenu()">Выход</button>
+  </div>
+
+  <div class="opponents-grid" id="opponents-container"></div>
+
+  <div class="log-box" id="game-log">Подготовка стола...</div>
+
+  <div class="ask-panel" id="ask-controls">
+    <div class="section-title">1. Выберите номинал (можно любой):</div>
+    <div class="ranks-grid" id="ranks-grid"></div>
+
+    <div class="section-title">2. Выберите масть (нельзя выбрать свою):</div>
+    <div class="suits-grid" id="suits-grid"></div>
+
+    <button class="btn" id="ask-submit-btn" onclick="submitPlayerAsk()" disabled>Спросить карту</button>
+  </div>
+
+  <div>
+    <div class="section-title" style="display:flex; justify-content:space-between;">
+      <span>Ваши карты (<span id="my-cards-count">0</span>):</span>
+      <span>Ваши сундучки: <strong id="my-chests-count">0</strong></span>
+    </div>
+    <div class="my-hand" id="my-hand-container"></div>
+  </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: ОТВЕТ ИГРОКА (ДА / НЕТ) -->
+<div class="modal-overlay" id="response-modal">
+  <div class="modal-box">
+    <div class="modal-title">❓ У вас спрашивают карту!</div>
+    <div class="modal-text" id="modal-question-text"></div>
+    <div class="modal-hand-preview" id="modal-hand-preview"></div>
+    <div class="anti-cheat-note" id="anti-cheat-note"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-answer-yes" onclick="resolvePlayerResponse(true)">✅ Да, отдать</button>
+      <button class="btn btn-danger" id="btn-answer-no" onclick="resolvePlayerResponse(false)">❌ Нет</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) {
+  tg.ready();
+  tg.expand();
+}
+
+const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+const SUITS = [
+  { symbol: '♠', name: 'Пики', red: false },
+  { symbol: '♥', name: 'Черви', red: true },
+  { symbol: '♦', name: 'Бубны', red: true },
+  { symbol: '♣', name: 'Трефы', red: false }
+];
+
+// Задержки для комфортного чтения (в миллисекундах)
+const BOT_THINK_DELAY = 2600;
+const BOT_ANSWER_DELAY = 2200;
+const RESULT_READ_DELAY = 2400;
+
+let myId = 'player_local';
+let myNick = 'Игрок';
+let isHost = true;
+let isMultiplayer = false;
+
+// Сетевые переменные PeerJS
+let peer = null;
+let connections = {}; // для хоста: peerId -> conn
+let hostConn = null;  // для гостя
+let currentRoomCode = '';
+
+// Состояние игры (хранится и управляется на стороне хоста)
+let gameState = null;
+
+// Выбранные параметры хода игрока
+let selectedTargetId = null;
+let selectedRank = null;
+let selectedSuit = null;
+
+// Ожидающий ответ на запрос (для модального окна)
+let pendingQuestion = null;
+
+// Инициализация имени из Telegram
+window.addEventListener('DOMContentLoaded', () => {
+  const nickInput = document.getElementById('player-nick');
+  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+    const u = tg.initDataUnsafe.user;
+    nickInput.value = u.first_name || u.username || 'Игрок';
+  } else {
+    nickInput.value = 'Игрок';
+  }
+});
+
+function haptic(type = 'light') {
+  if (tg && tg.HapticFeedback) {
+    if (type === 'success' || type === 'error' || type === 'warning') {
+      tg.HapticFeedback.notificationOccurred(type);
+    } else {
+      tg.HapticFeedback.impactOccurred(type);
+    }
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function getNick() {
+  const val = document.getElementById('player-nick').value.trim();
+  return val || 'Игрок';
+}
+
+// ==========================================
+// СОЗДАНИЕ КОЛОДЫ НА 52 КАРТЫ
+// ==========================================
+function createDeck52() {
+  const deck = [];
+  for (const r of RANKS) {
+    for (const s of SUITS) {
+      deck.push({ rank: r, suit: s.symbol });
+    }
+  }
+  // Тасование Фишера — Йетса
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+// ==========================================
+// ОДИНОЧНАЯ ИГРА
+// ==========================================
+function startSoloGame() {
+  isMultiplayer = false;
+  isHost = true;
+  myId = 'human_0';
+  myNick = getNick();
+
+  const botsCount = parseInt(document.getElementById('solo-bots-count').value, 10);
+  const players = [{ id: myId, name: myNick, isBot: false, hand: [], chests: [] }];
+
+  for (let i = 1; i <= botsCount; i++) {
+    players.push({ id: 'bot_' + i, name: 'Пользователь ' + i, isBot: true, hand: [], chests: [] });
+  }
+
+  initMatch(players);
+}
+
+// ==========================================
+// МУЛЬТИПЛЕЕР (PEERJS)
+// ==========================================
+let lobbyPlayers = [];
+
+function createOnlineRoom() {
+  myNick = getNick();
+  isMultiplayer = true;
+  isHost = true;
+  currentRoomCode = String(Math.floor(1000 + Math.random() * 9000));
+  const peerId = 'sunduchki_tg_' + currentRoomCode;
+
+  document.getElementById('net-status').innerText = 'Создание комнаты...';
+  if (peer) peer.destroy();
+  peer = new Peer(peerId);
+
+  peer.on('open', (id) => {
+    myId = id;
+    connections = {};
+    lobbyPlayers = [{ id: myId, name: myNick, isBot: false }];
+    document.getElementById('net-status').innerText = '';
+    document.getElementById('lobby-room-code').innerText = currentRoomCode;
+    document.getElementById('host-controls').style.display = 'block';
+    document.getElementById('guest-wait-msg').style.display = 'none';
+    renderLobby();
+    showScreen('screen-lobby');
+  });
+
+  peer.on('connection', (conn) => {
+    conn.on('data', (data) => handleHostReceive(conn, data));
+    conn.on('close', () => {
+      delete connections[conn.peer];
+      lobbyPlayers = lobbyPlayers.filter(p => p.id !== conn.peer);
+      broadcastLobby();
+    });
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('net-status').innerText = 'Ошибка сети: ' + err.type + '. Попробуйте снова.';
+  });
+}
+
+function joinOnlineRoom() {
+  const code = document.getElementById('join-code-input').value.trim();
+  if (code.length !== 4) {
+    document.getElementById('net-status').innerText = 'Введите 4-значный код комнаты.';
+    return;
+  }
+  myNick = getNick();
+  isMultiplayer = true;
+  isHost = false;
+  currentRoomCode = code;
+
+  document.getElementById('net-status').innerText = 'Подключение к комнате ' + code + '...';
+  if (peer) peer.destroy();
+  peer = new Peer();
+
+  peer.on('open', (id) => {
+    myId = id;
+    hostConn = peer.connect('sunduchki_tg_' + code);
+
+    hostConn.on('open', () => {
+      document.getElementById('net-status').innerText = '';
+      hostConn.send({ type: 'JOIN', name: myNick });
+      document.getElementById('lobby-room-code').innerText = code;
+      document.getElementById('host-controls').style.display = 'none';
+      document.getElementById('guest-wait-msg').style.display = 'block';
+      showScreen('screen-lobby');
+    });
+
+    hostConn.on('data', (data) => handleGuestReceive(data));
+    hostConn.on('close', () => {
+      alert('Создатель комнаты отключился.');
+      leaveToMenu();
+    });
+  });
+
+  peer.on('error', () => {
+    document.getElementById('net-status').innerText = 'Комната не найдена. Проверьте код.';
+  });
+}
+
+function hostAddBot() {
+  if (!isHost || lobbyPlayers.length >= 5) return;
+  const botNum = lobbyPlayers.filter(p => p.isBot).length + 1;
+  lobbyPlayers.push({ id: 'bot_' + Date.now() + '_' + botNum, name: 'Пользователь ' + botNum, isBot: true });
+  broadcastLobby();
+}
+
+function broadcastLobby() {
+  renderLobby();
+  Object.values(connections).forEach(conn => {
+    conn.send({ type: 'LOBBY_UPDATE', players: lobbyPlayers });
+  });
+}
+
+function renderLobby() {
+  const ul = document.getElementById('lobby-players-list');
+  ul.innerHTML = '';
+  lobbyPlayers.forEach((p, idx) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${p.isBot ? '🤖' : '👤'} ${p.name} ${p.id === myId ? '(Вы)' : ''}</span>
+                    <span style="font-size:12px; opacity:0.7;">${idx === 0 ? 'Хост' : ''}</span>`;
+    ul.appendChild(li);
+  });
+  const addBotBtn = document.getElementById('add-bot-btn');
+  if (addBotBtn) addBotBtn.disabled = lobbyPlayers.length >= 5;
+  const startBtn = document.getElementById('start-multi-btn');
+  if (startBtn) startBtn.disabled = lobbyPlayers.length < 2;
+}
+
+function inviteTelegram() {
+  const text = `Заходи играть в «Сундучки»! Код комнаты: ${currentRoomCode}`;
+  const url = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/Sunducc_Bot')}&text=${encodeURIComponent(text)}`;
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function hostStartMultiGame() {
+  if (!isHost || lobbyPlayers.length < 2) return;
+  const players = lobbyPlayers.map(p => ({
+    id: p.id, name: p.name, isBot: p.isBot, hand: [], chests: []
+  }));
+  initMatch(players);
+}
+
+// ==========================================
+// ЛОГИКА ИГРЫ (ХОСТ)
+// ==========================================
+function initMatch(players) {
+  const deck = createDeck52(); // Ровно 52 карты!
+
+  // Раздаём по 4 карты каждому игроку
+  for (let i = 0; i < 4; i++) {
+    for (const p of players) {
+      if (deck.length > 0) p.hand.push(deck.pop());
+    }
+  }
+
+  gameState = {
+    deck: deck,
+    players: players,
+    turnIndex: 0,
+    log: `Игра началась! В колоде осталось ${deck.length} карт. Первым ходит ${players[0].name}.`,
+    awaitingResponse: null, // { askerId, targetId, rank, suit }
+    gameOver: false
+  };
+
+  // Проверяем, не выпал ли сундучок сразу при раздаче
+  players.forEach(p => checkAndCollectChests(p));
+
+  selectedTargetId = null;
+  selectedRank = null;
+  selectedSuit = null;
+
+  syncAndRender();
+  scheduleNextStepIfBot();
+}
+
+function checkAndCollectChests(player) {
+  const counts = {};
+  player.hand.forEach(c => { counts[c.rank] = (counts[c.rank] || 0) + 1; });
+
+  for (const r in counts) {
+    if (counts[r] === 4) {
+      player.hand = player.hand.filter(c => c.rank !== r);
+      player.chests.push(r);
+      gameState.log = `🎉 ${player.name} собрал(а) сундучок из четырёх «${r}»!`;
+    }
+  }
+}
+
+function ensurePlayerHasCards(player) {
+  if (player.hand.length === 0 && gameState.deck.length > 0) {
+    player.hand.push(gameState.deck.pop());
+  }
+}
+
+function getAllCollectedChests() {
+  const all = [];
+  gameState.players.forEach(p => all.push(...p.chests));
+  return all;
+}
+
+function checkGameOver() {
+  const totalChests = getAllCollectedChests().length;
+  if (totalChests === 13) {
+    gameState.gameOver = true;
+    const sorted = [...gameState.players].sort((a, b) => b.chests.length - a.chests.length);
+    const winner = sorted[0];
+    gameState.log = `🏆 Игра окончена! Победил(а) ${winner.name} (${winner.chests.length} сундучков)!`;
+    return true;
+  }
+  return false;
+}
+
+// Обработка вопроса от игрока или бота
+function hostProcessAsk(askerId, targetId, rank, suit) {
+  if (!isHost || gameState.gameOver || gameState.awaitingResponse) return;
+
+  const asker = gameState.players.find(p => p.id === askerId);
+  const target = gameState.players.find(p => p.id === targetId);
+  if (!asker || !target) return;
+
+  const suitObj = SUITS.find(s => s.symbol === suit);
+  gameState.log = `🗣️ ${asker.name} спрашивает у ${target.name}: «Есть ли ${rank} ${suit} (${suitObj.name})?»`;
+  gameState.awaitingResponse = { askerId, targetId, rank, suit };
+
+  syncAndRender();
+
+  // Если отвечает бот — он думает BOT_ANSWER_DELAY мс и честно отвечает
+  if (target.isBot) {
+    setTimeout(() => {
+      if (!gameState || !gameState.awaitingResponse) return;
+      const hasCard = target.hand.some(c => c.rank === rank && c.suit === suit);
+      hostProcessAnswer(targetId, hasCard);
+    }, BOT_ANSWER_DELAY);
+  }
+}
+
+// Обработка ответа Да / Нет
+function hostProcessAnswer(responderId, saidYes) {
+  if (!isHost || !gameState.awaitingResponse) return;
+  const req = gameState.awaitingResponse;
+  if (req.targetId !== responderId) return;
+
+  const asker = gameState.players.find(p => p.id === req.askerId);
+  const target = gameState.players.find(p => p.id === req.targetId);
+  const cardIdx = target.hand.findIndex(c => c.rank === req.rank && c.suit === req.suit);
+  const actuallyHasCard = cardIdx !== -1;
+
+  // Защита на уровне сервера/хоста от обмана
+  if (!saidYes && actuallyHasCard) {
+    saidYes = true;
+  }
+
+  gameState.awaitingResponse = null;
+
+  if (saidYes && actuallyHasCard) {
+    // Отдаёт карту!
+    const [card] = target.hand.splice(cardIdx, 1);
+    asker.hand.push(card);
+    gameState.log = `✅ ${target.name} отвечает «ДА» и отдаёт ${card.rank}${card.suit} игроку ${asker.name}! ${asker.name} ходит снова.`;
+
+    checkAndCollectChests(asker);
+    ensurePlayerHasCards(target);
+    ensurePlayerHasCards(asker);
+
+    if (checkGameOver()) {
+      syncAndRender();
+      return;
+    }
+
+    syncAndRender();
+    setTimeout(() => scheduleNextStepIfBot(), RESULT_READ_DELAY);
+  } else {
+    // Отвечает «Нет» — спрашивающий тянет карту из колоды
+    let drawMsg = '';
+    if (gameState.deck.length > 0) {
+      const drawn = gameState.deck.pop();
+      asker.hand.push(drawn);
+      drawMsg = `${asker.name} берёт карту из колоды.`;
+    } else {
+      drawMsg = `В колоде больше нет карт.`;
+    }
+
+    checkAndCollectChests(asker);
+    ensurePlayerHasCards(asker);
+
+    if (checkGameOver()) {
+      syncAndRender();
+      return;
+    }
+
+    // Передача хода следующему игроку с картами
+    advanceTurn();
+    const nextPlayer = gameState.players[gameState.turnIndex];
+    gameState.log = `❌ ${target.name} отвечает «НЕТ». ${drawMsg} Теперь ходит ${nextPlayer.name}.`;
+
+    syncAndRender();
+    setTimeout(() => scheduleNextStepIfBot(), RESULT_READ_DELAY);
+  }
+}
+
+function advanceTurn() {
+  const total = gameState.players.length;
+  for (let i = 1; i <= total; i++) {
+    const idx = (gameState.turnIndex + i) % total;
+    ensurePlayerHasCards(gameState.players[idx]);
+    if (gameState.players[idx].hand.length > 0 || gameState.deck.length > 0) {
+      gameState.turnIndex = idx;
+      return;
+    }
+  }
+}
+
+// ==========================================
+// ИНТЕЛЛЕКТ БОТА (С УМЕРЕННОЙ СКОРОСТЬЮ)
+// ==========================================
+function scheduleNextStepIfBot() {
+  if (!isHost || !gameState || gameState.gameOver || gameState.awaitingResponse) return;
+
+  const current = gameState.players[gameState.turnIndex];
+  ensurePlayerHasCards(current);
+
+  if (!current.isBot) return;
+
+  setTimeout(() => {
+    if (!gameState || gameState.gameOver || gameState.awaitingResponse) return;
+    const bot = gameState.players[gameState.turnIndex];
+    if (!bot || !bot.isBot) return;
+
+    // Выбираем соперника
+    const opponents = gameState.players.filter(p => p.id !== bot.id && (p.hand.length > 0 || gameState.deck.length > 0));
+    if (opponents.length === 0) {
+      advanceTurn();
+      syncAndRender();
+      scheduleNextStepIfBot();
+      return;
+    }
+    const target = opponents[Math.floor(Math.random() * opponents.length)];
+
+    // Выбираем номинал (70% из своих карт, 30% случайный несобранный)
+    const collected = getAllCollectedChests();
+    const availableRanks = RANKS.filter(r => !collected.includes(r));
+    let chosenRank = availableRanks[0];
+
+    if (bot.hand.length > 0 && Math.random() < 0.7) {
+      chosenRank = bot.hand[Math.floor(Math.random() * bot.hand.length)].rank;
+    } else if (availableRanks.length > 0) {
+      chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
+    }
+
+    // Выбираем масть, которой НЕТ у самого бота для этого номинала!
+    const mySuitsForRank = bot.hand.filter(c => c.rank === chosenRank).map(c => c.suit);
+    const missingSuits = SUITS.filter(s => !mySuitsForRank.includes(s.symbol));
+    const chosenSuitObj = missingSuits.length > 0
+      ? missingSuits[Math.floor(Math.random() * missingSuits.length)]
+      : SUITS[0];
+
+    hostProcessAsk(bot.id, target.id, chosenRank, chosenSuitObj.symbol);
+  }, BOT_THINK_DELAY);
+}
+
+// ==========================================
+// СИНХРОНИЗАЦИЯ И СЕТЕВЫЕ СООБЩЕНИЯ
+// ==========================================
+function handleHostReceive(conn, data) {
+  if (data.type === 'JOIN') {
+    if (lobbyPlayers.length >= 5) {
+      conn.close();
+      return;
+    }
+    connections[conn.peer] = conn;
+    lobbyPlayers.push({ id: conn.peer, name: data.name || 'Игрок', isBot: false });
+    broadcastLobby();
+  } else if (data.type === 'ASK') {
+    const current = gameState.players[gameState.turnIndex];
+    if (current && current.id === conn.peer) {
+      hostProcessAsk(conn.peer, data.targetId, data.rank, data.suit);
+    }
+  } else if (data.type === 'ANSWER') {
+    hostProcessAnswer(conn.peer, data.saidYes);
+  }
+}
+
+function handleGuestReceive(data) {
+  if (data.type === 'LOBBY_UPDATE') {
+    lobbyPlayers = data.players;
+    renderLobby();
+  } else if (data.type === 'STATE_UPDATE') {
+    gameState = data.state;
+    renderGame();
+  }
+}
+
+function syncAndRender() {
+  if (isHost && isMultiplayer) {
+    Object.entries(connections).forEach(([peerId, conn]) => {
+      // Отправляем игроку состояние, скрывая чужие карты (оставляем только их количество)
+      const sanitizedPlayers = gameState.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        isBot: p.isBot,
+        handCount: p.hand.length,
+        hand: p.id === peerId ? p.hand : [],
+        chests: p.chests
+      }));
+      conn.send({
+        type: 'STATE_UPDATE',
+        state: {
+          deckCount: gameState.deck.length,
+          players: sanitizedPlayers,
+          turnIndex: gameState.turnIndex,
+          log: gameState.log,
+          awaitingResponse: gameState.awaitingResponse,
+          gameOver: gameState.gameOver
+        }
+      });
+    });
+  }
+  renderGame();
+}
+
+// ==========================================
+// ОТРИСОВКА ИГРОВОГО ЭКРАНА И АНТИ-ЧИТ
+// ==========================================
+function renderGame() {
+  showScreen('screen-game');
+
+  const deckLen = isHost ? gameState.deck.length : gameState.deckCount;
+  document.getElementById('deck-count').innerText = deckLen;
+
+  const collectedChests = getAllCollectedChests();
+  document.getElementById('total-chests').innerText = collectedChests.length;
+  document.getElementById('game-log').innerText = gameState.log;
+
+  const me = gameState.players.find(p => p.id === myId);
+  const currentTurnPlayer = gameState.players[gameState.turnIndex];
+  const isMyTurn = currentTurnPlayer && currentTurnPlayer.id === myId && !gameState.gameOver && !gameState.awaitingResponse;
+
+  // Отрисовка соперников
+  const oppContainer = document.getElementById('opponents-container');
+  oppContainer.innerHTML = '';
+  const opponents = gameState.players.filter(p => p.id !== myId);
+
+  // Автовыбор соперника, если он один или выбранный вышел
+  if (opponents.length === 1) {
+    selectedTargetId = opponents[0].id;
+  } else if (!opponents.some(o => o.id === selectedTargetId)) {
+    selectedTargetId = opponents[0] ? opponents[0].id : null;
+  }
+
+  opponents.forEach(opp => {
+    const count = isHost ? opp.hand.length : opp.handCount;
+    const isTurn = currentTurnPlayer && currentTurnPlayer.id === opp.id;
+    const div = document.createElement('div');
+    div.className = 'opp-card' + (selectedTargetId === opp.id ? ' selected' : '') + (isTurn ? ' active-turn' : '');
+    div.innerHTML = `
+      <div class="opp-name">${opp.isBot ? '🤖' : '👤'} ${opp.name}</div>
+      <div class="opp-stats">
+        <span>🃏 Карт: <strong>${count}</strong></span>
+        <span>📦 Сундучков: <strong>${opp.chests.length}</strong></span>
+      </div>
+    `;
+    div.onclick = () => {
+      selectedTargetId = opp.id;
+      haptic('light');
+      renderGame();
+    };
+    oppContainer.appendChild(div);
+  });
+
+  // Отрисовка моих карт
+  const myHand = me ? me.hand : [];
+  myHand.sort((a, b) => {
+    const rDiff = RANKS.indexOf(a.rank) - RANKS.indexOf(b.rank);
+    if (rDiff !== 0) return rDiff;
+    return SUITS.findIndex(s => s.symbol === a.suit) - SUITS.findIndex(s => s.symbol === b.suit);
+  });
+
+  document.getElementById('my-cards-count').innerText = myHand.length;
+  document.getElementById('my-chests-count').innerText = me ? me.chests.length : 0;
+
+  const handContainer = document.getElementById('my-hand-container');
+  handContainer.innerHTML = '';
+  myHand.forEach(c => {
+    const sObj = SUITS.find(s => s.symbol === c.suit);
+    const isHighlighted = gameState.awaitingResponse &&
+      gameState.awaitingResponse.targetId === myId &&
+      gameState.awaitingResponse.rank === c.rank &&
+      gameState.awaitingResponse.suit === c.suit;
+
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'playing-card' + (sObj && sObj.red ? ' red' : '') + (isHighlighted ? ' highlight' : '');
+    cardDiv.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
+    handContainer.appendChild(cardDiv);
+  });
+
+  // Отрисовка кнопок номиналов (13 штук)
+  const ranksGrid = document.getElementById('ranks-grid');
+  ranksGrid.innerHTML = '';
+  RANKS.forEach(r => {
+    const isCollected = collectedChests.includes(r);
+    const hasInHand = myHand.some(c => c.rank === r);
+    const btn = document.createElement('button');
+    btn.className = 'rank-btn' + (hasInHand ? ' has-in-hand' : '') + (selectedRank === r ? ' selected' : '');
+    btn.innerText = r;
+    btn.disabled = !isMyTurn || isCollected;
+    btn.onclick = () => {
+      selectedRank = r;
+      // Сбрасываем выбранную масть, если она уже есть у игрока для нового номинала
+      if (selectedSuit && myHand.some(c => c.rank === r && c.suit === selectedSuit)) {
+        selectedSuit = null;
+      }
+      haptic('light');
+      renderGame();
+    };
+    ranksGrid.appendChild(btn);
+  });
+
+  // Отрисовка кнопок мастей (4 штуки) + БЛОКИРОВКА мастей, которые уже есть у игрока!
+  const suitsGrid = document.getElementById('suits-grid');
+  suitsGrid.innerHTML = '';
+  SUITS.forEach(s => {
+    const alreadyOwned = selectedRank ? myHand.some(c => c.rank === selectedRank && c.suit === s.symbol) : false;
+    const btn = document.createElement('button');
+    btn.className = 'suit-btn' + (s.red ? ' red' : '') + (selectedSuit === s.symbol ? ' selected' : '');
+    btn.innerText = s.symbol;
+    btn.disabled = !isMyTurn || !selectedRank || alreadyOwned;
+    btn.onclick = () => {
+      selectedSuit = s.symbol;
+      haptic('light');
+      renderGame();
+    };
+    suitsGrid.appendChild(btn);
+  });
+
+  // Кнопка отправки запроса
+  const submitBtn = document.getElementById('ask-submit-btn');
+  const canSubmit = isMyTurn && selectedTargetId && selectedRank && selectedSuit;
+  submitBtn.disabled = !canSubmit;
+  if (canSubmit) {
+    const targetObj = opponents.find(o => o.id === selectedTargetId);
+    submitBtn.innerText = `Спросить у ${targetObj.name}: ${selectedRank} ${selectedSuit}`;
+  } else if (!isMyTurn && !gameState.gameOver) {
+    submitBtn.innerText = `Сейчас ходит ${currentTurnPlayer.name}...`;
+  } else if (gameState.gameOver) {
+    submitBtn.innerText = 'Партия завершена';
+  } else {
+    submitBtn.innerText = 'Выберите игрока, номинал и масть';
+  }
+
+  // Проверка модального окна ответа «Да / Нет» для текущего игрока
+  const modal = document.getElementById('response-modal');
+  const req = gameState.awaitingResponse;
+  if (req && req.targetId === myId) {
+    const asker = gameState.players.find(p => p.id === req.askerId);
+    const suitObj = SUITS.find(s => s.symbol === req.suit);
+    const hasExactCard = myHand.some(c => c.rank === req.rank && c.suit === req.suit);
+
+    document.getElementById('modal-question-text').innerHTML =
+      `Игрок <strong>${asker.name}</strong> спрашивает у вас карту:<br><span style="font-size:22px; font-weight:900; color:#fff;">${req.rank} ${req.suit} (${suitObj.name})</span>`;
+
+    // Показываем карты игрока прямо в окне для удобства
+    const preview = document.getElementById('modal-hand-preview');
+    preview.innerHTML = '';
+    myHand.forEach(c => {
+      const s = SUITS.find(x => x.symbol === c.suit);
+      const isMatch = c.rank === req.rank && c.suit === req.suit;
+      const d = document.createElement('div');
+      d.className = 'playing-card' + (s && s.red ? ' red' : '') + (isMatch ? ' highlight' : '');
+      d.style.width = '36px'; d.style.height = '52px'; d.style.fontSize = '13px';
+      d.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
+      preview.appendChild(d);
+    });
+
+    const btnYes = document.getElementById('btn-answer-yes');
+    const btnNo = document.getElementById('btn-answer-no');
+    const note = document.getElementById('anti-cheat-note');
+
+    if (hasExactCard) {
+      // У игрока ЕСТЬ эта карта — блокируем кнопку «Нет»!
+      btnYes.disabled = false;
+      btnNo.disabled = true;
+      note.innerText = '🔒 Кнопка «Нет» заблокирована: эта карта есть у вас в руке.';
+    } else {
+      // У игрока НЕТ этой карты — блокируем кнопку «Да», чтобы не отдать пустоту
+      btnYes.disabled = true;
+      btnNo.disabled = false;
+      note.innerText = 'У вас нет этой карты — нажмите «Нет».';
+    }
+
+    if (!modal.classList.contains('active')) {
+      haptic('warning');
+      modal.classList.add('active');
+    }
+  } else {
+    modal.classList.remove('active');
+  }
+}
+
+function submitPlayerAsk() {
+  if (!selectedTargetId || !selectedRank || !selectedSuit) return;
+  haptic('medium');
+
+  const reqData = {
+    type: 'ASK',
+    targetId: selectedTargetId,
+    rank: selectedRank,
+    suit: selectedSuit
+  };
+
+  selectedRank = null;
+  selectedSuit = null;
+
+  if (isHost) {
+    hostProcessAsk(myId, reqData.targetId, reqData.rank, reqData.suit);
+  } else if (hostConn) {
+    hostConn.send(reqData);
+  }
+}
+
+function resolvePlayerResponse(saidYes) {
+  haptic(saidYes ? 'success' : 'light');
+  document.getElementById('response-modal').classList.remove('active');
+
+  if (isHost) {
+    hostProcessAnswer(myId, saidYes);
+  } else if (hostConn) {
+    hostConn.send({ type: 'ANSWER', saidYes: saidYes });
+  }
+}
+
+function leaveToMenu() {
+  if (peer) {
+    peer.destroy();
+    peer = null;
+  }
+  connections = {};
+  hostConn = null;
+  gameState = null;
+  document.getElementById('response-modal').classList.remove('active');
+  showScreen('screen-menu');
+}
+</script>
+</body>
+</html>
