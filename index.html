@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Сундучки — Карточная игра</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://telegram.org"></script>
+<script src="https://unpkg.com"></script>
 <style>
   * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
   body {
@@ -45,9 +45,9 @@
   .player-badge {
     position: absolute; width: 118px;
     background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 7px 8px;
-    border: 2px solid rgba(255,255,255,0.14); transition: all 0.25s; z-index: 10;
+    border: 2px solid rgba(255,255,255,0.12); transition: all 0.25s; z-index: 10;
   }
-  .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.2); }
+  .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.18); }
   .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
   .p-name { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -70,7 +70,7 @@
     padding: 8px 10px; text-align: center; font-size: 13px; line-height: 1.35;
     min-height: 48px; display: flex; align-items: center; justify-content: center;
   }
-  .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
+  .action-panel { background: rgba(0, 0, 0, 0.72); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.12); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
   .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .grid-suits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
@@ -114,6 +114,7 @@
   .lobby-list { list-style: none; padding: 0; margin: 10px 0; }
   .lobby-list li { background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; }
   .code-display { font-size: 30px; font-weight: bold; letter-spacing: 6px; text-align: center; color: #ffd54f; background: #0d2b22; padding: 8px; border-radius: 10px; margin: 8px 0; }
+  .status-pill { font-size: 12px; text-align: center; color: #81c784; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -136,7 +137,7 @@
 
     <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
       <button type="button" id="btn-start-solo" class="btn btn-primary">🎮 Одиночная игра (с ботами)</button>
-      <button type="button" id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (с разных телефонов)</button>
+      <button type="button" id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (2–5 телефонов)</button>
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
@@ -145,7 +146,7 @@
 <div id="screen-mp-menu" class="screen">
   <div class="card-box">
     <h1>🌐 Онлайн-игра</h1>
-    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек)</div>
+    <div class="subtitle">Подключайтесь по коду (до 5 человек одновременно)</div>
 
     <button type="button" id="btn-create-room" class="btn btn-primary" style="margin-bottom: 14px;">➕ Создать комнату</button>
 
@@ -161,7 +162,7 @@
 <div id="screen-lobby" class="screen">
   <div class="card-box">
     <h1>Комната</h1>
-    <div class="subtitle">Ждём подключения игроков (от 2 до 5)</div>
+    <div id="host-signal-status" class="status-pill">🟢 Облачный канал активен</div>
     <div id="lobby-code" class="code-display">----</div>
 
     <button type="button" id="btn-invite-room" class="btn btn-tg" style="margin-bottom: 10px;">📨 Пригласить друга (с кодом)</button>
@@ -179,954 +180,902 @@
   </div>
 </div>
 
-<div id="screen-game" class="screen">
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <span style="font-size:12px; color:#a5d6a7;" id="deck-info">Колода: 36 карт</span>
-    <button type="button" id="btn-quit-game" class="btn btn-danger btn-sm">Выйти</button>
-  </div>
+Используйте код с осторожностью.
+Колода: 36 карт
+Выйти
+Подготовка стола...
+У вас спрашивают карту...
 
-  <div class="arena" id="arena-container">
-    <div id="opponents-layer"></div>
+✅ Да, есть
+❌ Нет
 
-    <div class="center-table">
-      <div id="game-log" class="log-box">Подготовка стола...</div>
+Выберите соперника
 
-      <div id="answer-modal" class="answer-banner" style="display:none;">
-        <div id="answer-question" class="answer-text">У вас спрашивают карту...</div>
-        <div class="answer-btns">
-          <button type="button" id="btn-ans-yes" class="btn btn-primary btn-sm" style="width:100%;">✅ Да, есть</button>
-          <button type="button" id="btn-ans-no" class="btn btn-danger btn-sm" style="width:100%;">❌ Нет</button>
-        </div>
-      </div>
 
-      <div id="turn-panel" class="action-panel" style="display:none;">
-        <div id="turn-prompt" class="panel-title">Выберите соперника</div>
-        <div id="turn-choices"></div>
-      </div>
-    </div>
-  </div>
 
-  <div id="my-hand-zone" class="hand-zone">
-    <div class="hand-header">
-      <span id="my-name-label">Вы</span>
-      <span>Сундучков: <strong id="my-chests" style="color:#ffd54f;">0</strong> | Карт: <strong id="my-cards-count">0</strong></span>
-    </div>
-    <div id="my-cards" class="cards-wrap"></div>
-  </div>
-</div>
+Вы
+Сундучков: 0 | Карт: 0
 
-<script>
+
+
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS_36 = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
 const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
+const NUM_OPTIONS =;
 const BOT_DELAY = 2900;
 const BOT_STEP_DELAY = 2600;
-
-const PEER_CONFIG = {
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' }
-    ]
-  }
-};
-
+const MQTT_BROKER = 'wss://hivemq.com';
 let tg = null;
 try {
-  if (window.Telegram && window.Telegram.WebApp) {
-    tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-  }
+if (window.Telegram && window.Telegram.WebApp) {
+tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+}
 } catch (e) {}
-
 function haptic(type = 'light') {
-  try {
-    if (tg && tg.HapticFeedback) {
-      if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
-      else tg.HapticFeedback.impactOccurred(type);
-    }
-  } catch (e) {}
+try {
+if (tg && tg.HapticFeedback) {
+if (type === 'success' || type === 'error') tg.HapticFeedback.notificationOccurred(type);
+else tg.HapticFeedback.impactOccurred(type);
 }
-
+} catch (e) {}
+}
 let state = {
-  mode: 'solo',
-  myId: 'p0',
-  myNick: 'Игрок',
-  players: [],
-  activeRanks: RANKS_36,
-  turnIndex: 0,
-  step: 'IDLE',
-  pendingAsk: null,
-  botMemory: {}
+mode: 'solo',
+myId: 'p0',
+myNick: 'Игрок',
+players: [],
+activeRanks: RANKS_36,
+turnIndex: 0,
+step: 'IDLE',
+pendingAsk: null,
+botMemory: {}
 };
-
-let peer = null;
-let connections = {};
-let hostConn = null;
+let mqttClient = null;
+let roomTopic = '';
 let roomCode = '';
-
+let gameStarted = false;
+let lobbyHeartbeat = null;
 window.addEventListener('DOMContentLoaded', () => {
-  const nickInput = document.getElementById('player-nick');
-  if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
-    nickInput.value = tg.initDataUnsafe.user.first_name;
-  }
-
-  document.getElementById('btn-start-solo').addEventListener('click', startSoloGame);
-  document.getElementById('btn-open-mp').addEventListener('click', () => {
-    document.getElementById('mp-status').innerText = '';
-    showScreen('screen-mp-menu');
-  });
-  document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
-  document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
-  document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
-  document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
-  document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
-  document.getElementById('btn-add-bot').addEventListener('click', addBotToLobby);
-  document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
-  document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
-  document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
+const nickInput = document.getElementById('player-nick');
+if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
+nickInput.value = tg.initDataUnsafe.user.first_name;
+}
+document.getElementById('btn-start-solo').addEventListener('click', startSoloGame);
+document.getElementById('btn-open-mp').addEventListener('click', () => {
+document.getElementById('mp-status').innerText = '';
+showScreen('screen-mp-menu');
 });
-
+document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
+document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
+document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
+document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
+document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
+document.getElementById('btn-add-bot').addEventListener('click', addBotToLobby);
+document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
+document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
+document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
+try {
+const startParam = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param)
+|| new URLSearchParams(window.location.search).get('tgWebAppStartParam');
+if (startParam && /^\d{4}$/.test(startParam)) {
+document.getElementById('join-code').value = startParam;
+showScreen('screen-mp-menu');
+setTimeout(() => joinOnlineRoom(), 400);
+}
+} catch (e) {}
+});
 function getNick() {
-  const val = document.getElementById('player-nick').value.trim();
-  return val || 'Игрок';
+const val = document.getElementById('player-nick').value.trim();
+return val || 'Игрок';
 }
-
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+document.getElementById(id).classList.add('active');
 }
-
 function setMpStatus(text) {
-  document.getElementById('mp-status').innerText = text;
+document.getElementById('mp-status').innerText = text;
 }
-
 function shareToTelegram(code) {
-  const botUrl = 'https://t.me/Sunducc_Bot';
-  const text = code
-    ? `Заходи играть в «Сундучки»! Мой код комнаты: ${code}`
-    : `Сыграем в карточную игру «Сундучки» прямо в Telegram!`;
-  const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(botUrl)}&text=${encodeURIComponent(text)}`;
-  if (tg && tg.openTelegramLink) {
-    tg.openTelegramLink(shareUrl);
-  } else {
-    window.open(shareUrl, '_blank');
-  }
+const appUrl = code
+? https://t.me{code}
+: https://t.me;
+const text = code
+? Заходи играть в «Сундучки»! Код комнаты: ${code}
+: Сыграем в карточную игру «Сундучки» прямо в Telegram!;
+const shareUrl = https://t.me{encodeURIComponent(appUrl)}&text=${encodeURIComponent(text)};
+if (tg && tg.openTelegramLink) {
+tg.openTelegramLink(shareUrl);
+} else {
+window.open(shareUrl, '_blank');
 }
-
+}
 function startSoloGame() {
-  haptic('medium');
-  state.mode = 'solo';
-  state.myId = 'p0';
-  state.myNick = getNick();
-
-  const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
-  state.players = [{ id: 'p0', name: state.myNick, isBot: false, hand: [], chests: [] }];
-  for (let i = 1; i < totalPlayers; i++) {
-    state.players.push({ id: 'p' + i, name: `Пользователь ${i}`, isBot: true, hand: [], chests: [] });
-  }
-  initMatch();
+haptic('medium');
+state.mode = 'solo';
+state.myId = 'p0';
+state.myNick = getNick();
+gameStarted = true;
+const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
+state.players = [{ id: 'p0', name: state.myNick, isBot: false, hand: [], chests: [] }];
+for (let i = 1; i < totalPlayers; i++) {
+state.players.push({ id: 'p' + i, name: Пользователь ${i}, isBot: true, hand: [], chests: [] });
 }
-
+initMatch();
+}
+function cleanupNetwork() {
+if (lobbyHeartbeat) { clearInterval(lobbyHeartbeat); lobbyHeartbeat = null; }
+if (mqttClient) {
+try { mqttClient.end(true); } catch (e) {}
+mqttClient = null;
+}
+}
+function publishMsg(payload) {
+if (mqttClient && mqttClient.connected && roomTopic) {
+mqttClient.publish(roomTopic, JSON.stringify(payload), { qos: 0 });
+}
+}
 function createOnlineRoom() {
-  haptic('medium');
-  const btnCreate = document.getElementById('btn-create-room');
-  btnCreate.disabled = true;
-  setMpStatus('Создаём комнату...');
-
-  state.mode = 'host';
-  state.myId = 'host';
-  state.myNick = getNick();
-  roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-
-  state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
-  connections = {};
-
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer('sunduchki-tg-' + roomCode, PEER_CONFIG);
-
-  peer.on('open', () => {
-    btnCreate.disabled = false;
-    setMpStatus('');
-    document.getElementById('lobby-code').innerText = roomCode;
-    document.getElementById('host-controls').style.display = 'flex';
-    document.getElementById('guest-wait').style.display = 'none';
-    showScreen('screen-lobby');
-    renderLobby();
-  });
-
-  peer.on('connection', conn => {
-    connections[conn.peer] = conn;
-    conn.on('data', data => handleHostData(conn, data));
-    conn.on('close', () => {
-      const closedId = Object.keys(connections).find(k => connections[k] === conn) || conn.peer;
-      state.players = state.players.filter(p => p.id !== closedId);
-      delete connections[closedId];
-      broadcastLobby();
-    });
-  });
-
-  peer.on('error', err => {
-    btnCreate.disabled = false;
-    setMpStatus('Ошибка сети: ' + err.type + '. Попробуйте ещё раз.');
-  });
+haptic('medium');
+const btnCreate = document.getElementById('btn-create-room');
+btnCreate.disabled = true;
+setMpStatus('Подключаемся к облаку...');
+cleanupNetwork();
+state.mode = 'host';
+state.myId = 'host_' + Math.random().toString(36).substring(2, 8);
+state.myNick = getNick();
+gameStarted = false;
+roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+roomTopic = sunduchki_tg_game/room_${roomCode};
+state.players = [{ id: state.myId, name: state.myNick, isBot: false, hand: [], chests: [] }];
+mqttClient = mqtt.connect(MQTT_BROKER, {
+clientId: 'client_' + state.myId + '_' + Date.now(),
+clean: true,
+connectTimeout: 8000,
+reconnectPeriod: 2000
+});
+mqttClient.on('connect', () => {
+mqttClient.subscribe(roomTopic, err => {
+btnCreate.disabled = false;
+if (err) {
+setMpStatus('Ошибка подписки на канал. Попробуйте снова.');
+return;
 }
-
+setMpStatus('');
+document.getElementById('lobby-code').innerText = roomCode;
+document.getElementById('host-controls').style.display = 'flex';
+document.getElementById('guest-wait').style.display = 'none';
+document.getElementById('host-signal-status').innerText = '🟢 Комната открыта (могут войти до 5 игроков)';
+showScreen('screen-lobby');
+broadcastLobby();
+lobbyHeartbeat = setInterval(() => {
+if (!gameStarted && state.mode === 'host') {
+broadcastLobby();
+}
+}, 2000);
+});
+});
+mqttClient.on('message', (topic, message) => {
+if (topic !== roomTopic) return;
+try {
+const data = JSON.parse(message.toString());
+handleHostMessage(data);
+} catch (e) {}
+});
+mqttClient.on('error', () => {
+btnCreate.disabled = false;
+setMpStatus('❌ Ошибка подключения к облаку. Проверьте интернет.');
+});
+}
 function joinOnlineRoom() {
-  const rawCode = document.getElementById('join-code').value.replace(/\D/g, '');
-  if (rawCode.length !== 4) {
-    setMpStatus('⚠️ Введите ровно 4 цифры кода комнаты');
-    haptic('error');
-    return;
-  }
-
-  haptic('medium');
-  const btnJoin = document.getElementById('btn-join-room');
-  btnJoin.disabled = true;
-  setMpStatus('Подключаемся к комнате ' + rawCode + '...');
-
-  state.mode = 'guest';
-  state.myNick = getNick();
-  roomCode = rawCode;
-
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer(PEER_CONFIG);
-
-  let connected = false;
-  const timeoutTimer = setTimeout(() => {
-    if (!connected) {
-      btnJoin.disabled = false;
-      setMpStatus('❌ Комната не найдена или хост вышел. Проверьте код.');
-      try { peer.destroy(); } catch (e) {}
-    }
-  }, 10000);
-
-  peer.on('open', id => {
-    state.myId = id;
-    hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true });
-
-    hostConn.on('open', () => {
-      connected = true;
-      clearTimeout(timeoutTimer);
-      btnJoin.disabled = false;
-      setMpStatus('');
-      hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
-      document.getElementById('lobby-code').innerText = rawCode;
-      document.getElementById('host-controls').style.display = 'none';
-      document.getElementById('guest-wait').style.display = 'block';
-      showScreen('screen-lobby');
-    });
-
-    hostConn.on('data', data => handleGuestData(data));
-    hostConn.on('close', () => {
-      alert('Создатель комнаты закрыл игру');
-      showScreen('screen-menu');
-    });
-    hostConn.on('error', () => {
-      clearTimeout(timeoutTimer);
-      btnJoin.disabled = false;
-      setMpStatus('❌ Ошибка соединения с комнатой.');
-    });
-  });
-
-  peer.on('error', err => {
-    clearTimeout(timeoutTimer);
-    btnJoin.disabled = false;
-    setMpStatus('❌ Ошибка сети (' + err.type + '). Проверьте интернет.');
-  });
+const rawCode = document.getElementById('join-code').value.replace(/\D/g, '');
+if (rawCode.length !== 4) {
+setMpStatus('⚠️ Введите ровно 4 цифры кода комнаты');
+haptic('error');
+return;
 }
-
+haptic('medium');
+const btnJoin = document.getElementById('btn-join-room');
+btnJoin.disabled = true;
+setMpStatus('Входим в комнату ' + rawCode + '...');
+cleanupNetwork();
+state.mode = 'guest';
+state.myId = 'guest_' + Math.random().toString(36).substring(2, 8);
+state.myNick = getNick();
+roomCode = rawCode;
+roomTopic = sunduchki_tg_game/room_${rawCode};
+gameStarted = false;
+let joinedConfirmed = false;
+const failTimeout = setTimeout(() => {
+if (!joinedConfirmed) {
+btnJoin.disabled = false;
+setMpStatus('❌ Комната ' + rawCode + ' не отвечает. Проверьте код или попросите хоста пересоздать.');
+cleanupNetwork();
+}
+}, 10000);
+mqttClient = mqtt.connect(MQTT_BROKER, {
+clientId: 'client_' + state.myId + '_' + Date.now(),
+clean: true,
+connectTimeout: 8000,
+reconnectPeriod: 2000
+});
+mqttClient.on('connect', () => {
+mqttClient.subscribe(roomTopic, err => {
+if (err) {
+clearTimeout(failTimeout);
+btnJoin.disabled = false;
+setMpStatus('❌ Ошибка входа в канал.');
+return;
+}
+const sendJoin = () => {
+if (!joinedConfirmed) {
+publishMsg({ type: 'JOIN', playerId: state.myId, nick: state.myNick });
+}
+};
+sendJoin();
+lobbyHeartbeat = setInterval(sendJoin, 1500);
+});
+});
+mqttClient.on('message', (topic, message) => {
+if (topic !== roomTopic) return;
+try {
+const data = JSON.parse(message.toString());
+if (!joinedConfirmed && (data.type === 'LOBBY' || data.type === 'STATE')) {
+const amIInList = data.players && data.players.some(p => p.id === state.myId);
+if (amIInList) {
+joinedConfirmed = true;
+clearTimeout(failTimeout);
+if (lobbyHeartbeat) { clearInterval(lobbyHeartbeat); lobbyHeartbeat = null; }
+btnJoin.disabled = false;
+setMpStatus('');
+document.getElementById('lobby-code').innerText = rawCode;
+document.getElementById('host-controls').style.display = 'none';
+document.getElementById('guest-wait').style.display = 'block';
+document.getElementById('host-signal-status').innerText = '🟢 Подключено к комнате';
+if (data.type === 'LOBBY') showScreen('screen-lobby');
+}
+}
+handleGuestMessage(data);
+} catch (e) {}
+});
+mqttClient.on('error', () => {
+clearTimeout(failTimeout);
+btnJoin.disabled = false;
+setMpStatus('❌ Ошибка сети. Проверьте подключение к интернету.');
+});
+}
 function addBotToLobby() {
-  if (state.players.length >= 5) return;
-  haptic('light');
-  const botNum = state.players.filter(p => p.isBot).length + 1;
-  state.players.push({ id: 'bot_' + Date.now() + '_' + botNum, name: `Пользователь ${botNum}`, isBot: true, hand: [], chests: [] });
-  broadcastLobby();
+if (state.players.length >= 5) return;
+haptic('light');
+const botNum = state.players.filter(p => p.isBot).length + 1;
+state.players.push({ id: 'bot_' + Date.now() + '_' + botNum, name: Пользователь ${botNum}, isBot: true, hand: [], chests: [] });
+broadcastLobby();
 }
-
 function broadcastLobby() {
-  renderLobby();
-  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
-  Object.values(connections).forEach(c => {
-    if (c.open) c.send({ type: 'LOBBY', players: list });
-  });
+renderLobby();
+const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
+publishMsg({ type: 'LOBBY', players: list });
 }
-
 function renderLobby() {
-  const ul = document.getElementById('lobby-players');
-  ul.innerHTML = '';
-  state.players.forEach(p => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span>${p.isBot ? '🤖' : '👤'} ${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
-    ul.appendChild(li);
-  });
-  document.getElementById('lobby-count').innerText = state.players.length;
-  document.getElementById('btn-start-mp').disabled = state.players.length < 2;
-  document.getElementById('btn-add-bot').disabled = state.players.length >= 5;
+const ul = document.getElementById('lobby-players');
+ul.innerHTML = '';
+state.players.forEach(p => {
+const li = document.createElement('li');
+li.innerHTML = <span>${p.isBot ? '🤖' : '👤'} ${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>;
+ul.appendChild(li);
+});
+document.getElementById('lobby-count').innerText = state.players.length;
+document.getElementById('btn-start-mp').disabled = state.players.length < 2;
+document.getElementById('btn-add-bot').disabled = state.players.length >= 5;
 }
-
 function startMultiplayerGame() {
-  if (state.players.length < 2) return;
-  haptic('medium');
-  initMatch();
+if (state.players.length < 2) return;
+haptic('medium');
+gameStarted = true;
+if (lobbyHeartbeat) { clearInterval(lobbyHeartbeat); lobbyHeartbeat = null; }
+initMatch();
 }
-
 function leaveRoom() {
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  showScreen('screen-menu');
+if (state.mode === 'guest') {
+publishMsg({ type: 'LEAVE', playerId: state.myId });
+} else if (state.mode === 'host') {
+publishMsg({ type: 'HOST_CLOSED' });
 }
-
+cleanupNetwork();
+showScreen('screen-menu');
+}
 function quitToMenu() {
-  state.step = 'GAME_OVER';
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  showScreen('screen-menu');
+state.step = 'GAME_OVER';
+if (state.mode === 'host') publishMsg({ type: 'HOST_CLOSED' });
+cleanupNetwork();
+showScreen('screen-menu');
 }
-
 function initMatch() {
-  const count = state.players.length;
-  state.activeRanks = count <= 3 ? RANKS_36 : RANKS_52;
-  document.getElementById('deck-info').innerText = `Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.)`;
-
-  let deck = [];
-  for (let r of state.activeRanks) {
-    for (let s of SUITS) deck.push({ rank: r, suit: s });
-  }
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-
-  state.players.forEach(p => { p.hand = []; p.chests = []; });
-  let idx = 0;
-  while (deck.length > 0) {
-    state.players[idx % count].hand.push(deck.pop());
-    idx++;
-  }
-
-  state.botMemory = {};
-  state.players.forEach(p => {
-    if (p.isBot) {
-      state.botMemory[p.id] = {
-        noRank: new Set(),
-        hasRank: new Set(),
-        failedSuits: {}
-      };
-    }
-  });
-
-  state.players.forEach(p => checkChests(p, false));
-  state.turnIndex = 0;
-  state.pendingAsk = null;
-
-  showScreen('screen-game');
-  startTurn();
+const count = state.players.length;
+state.activeRanks = count <= 3 ? RANKS_36 : RANKS_52;
+document.getElementById('deck-info').innerText = Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.);
+let deck = [];
+for (let r of state.activeRanks) {
+for (let s of SUITS) deck.push({ rank: r, suit: s });
 }
-
+for (let i = deck.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1));
+[deck[i], deck[j]] = [deck[j], deck[i]];
+}
+state.players.forEach(p => { p.hand = []; p.chests = []; });
+let idx = 0;
+while (deck.length > 0) {
+state.players[idx % count].hand.push(deck.pop());
+idx++;
+}
+state.botMemory = {};
+state.players.forEach(p => {
+if (p.isBot) {
+state.botMemory[p.id] = {
+noRank: new Set(),
+hasRank: new Set(),
+failedSuits: {}
+};
+}
+});
+state.players.forEach(p => checkChests(p, false));
+state.turnIndex = 0;
+state.pendingAsk = null;
+showScreen('screen-game');
+startTurn();
+}
 function checkChests(player, announce = true) {
-  const counts = {};
-  player.hand.forEach(c => counts[c.rank] = (counts[c.rank] || 0) + 1);
-  for (let r in counts) {
-    if (counts[r] === 4) {
-      player.hand = player.hand.filter(c => c.rank !== r);
-      player.chests.push(r);
-      if (announce) {
-        haptic('success');
-        setLog(`📦 ${player.name} собрал(а) сундучок из «${r}»!`);
-      }
-    }
-  }
+const counts = {};
+player.hand.forEach(c => counts[c.rank] = (counts[c.rank] || 0) + 1);
+for (let r in counts) {
+if (counts[r] === 4) {
+player.hand = player.hand.filter(c => c.rank !== r);
+player.chests.push(r);
+if (announce) {
+haptic('success');
+setLog(📦 ${player.name} собрал(а) сундучок из «${r}»!);
 }
-
+}
+}
+}
 function getAllCollectedRanks() {
-  const set = new Set();
-  state.players.forEach(p => p.chests.forEach(r => set.add(r)));
-  return set;
+const set = new Set();
+state.players.forEach(p => p.chests.forEach(r => set.add(r)));
+return set;
 }
-
 function checkGameOver() {
-  const totalChests = state.players.reduce((sum, p) => sum + p.chests.length, 0);
-  if (totalChests === state.activeRanks.length || state.players.every(p => p.hand.length === 0)) {
-    state.step = 'GAME_OVER';
-    const sorted = [...state.players].sort((a, b) => b.chests.length - a.chests.length);
-    const winner = sorted[0];
-    setLog(`🏆 Игра окончена! Победил(а) ${winner.name} (${winner.chests.length} сундучков)!`);
-    document.getElementById('turn-panel').style.display = 'none';
-    document.getElementById('answer-modal').style.display = 'none';
-    syncState();
-    return true;
-  }
-  return false;
+const totalChests = state.players.reduce((sum, p) => sum + p.chests.length, 0);
+if (totalChests === state.activeRanks.length) {
+state.step = 'GAME_OVER';
+const sorted = [...state.players].sort((a, b) => b.chests.length - a.chests.length);
+const winner = sorted;
+setLog(🏆 Игра окончена! Победил(а) ${winner.name} (${winner.chests.length} сундучков)!);
+document.getElementById('turn-panel').style.display = 'none';
+document.getElementById('answer-modal').style.display = 'none';
+syncState();
+return true;
 }
-
-function advanceTurn() {
-  for (let i = 1; i <= state.players.length; i++) {
-    const nextIdx = (state.turnIndex + i) % state.players.length;
-    if (state.players[nextIdx].hand.length > 0) {
-      state.turnIndex = nextIdx;
-      break;
-    }
-  }
-  startTurn();
+return false;
 }
-
 function startTurn() {
-  if (checkGameOver()) return;
-
-  if (state.players[state.turnIndex].hand.length === 0) {
-    return advanceTurn();
-  }
-
-  const current = state.players[state.turnIndex];
-  state.pendingAsk = null;
-
-  if (current.isBot) {
-    state.step = 'BOT_THINKING';
-    setLog(`🤖 Ходит ${current.name}. Анализирует стол...`);
-    syncState();
-    setTimeout(() => executeBotTurn(current), BOT_DELAY);
-  } else {
-    state.step = 'SELECT_TARGET';
-    if (current.id === state.myId) haptic('light');
-    setLog(`🎯 Ход игрока ${current.name}. Выберите соперника по краям стола.`);
-    syncState();
-  }
+if (checkGameOver()) return;
+let guard = 0;
+while (state.players[state.turnIndex].hand.length === 0 && guard < state.players.length) {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+guard++;
 }
-
+const current = state.players[state.turnIndex];
+state.pendingAsk = null;
+if (current.isBot) {
+state.step = 'BOT_THINKING';
+setLog(🤖 Ходит ${current.name}. Анализирует стол...);
+syncState();
+setTimeout(() => executeBotTurn(current), BOT_DELAY);
+} else {
+state.step = 'SELECT_TARGET';
+if (current.id === state.myId) haptic('light');
+setLog(🎯 Ход игрока ${current.name}. Нажмите на соперника по краям стола.);
+syncState();
+}
+}
 function animateCardTransfer(fromId, toId, cardsToFly, showFace) {
-  const fromEl = fromId === state.myId
-    ? document.getElementById('my-hand-zone')
-    : document.getElementById('badge-' + fromId);
-  const toEl = toId === state.myId
-    ? document.getElementById('my-hand-zone')
-    : document.getElementById('badge-' + toId);
-
-  if (!fromEl || !toEl) return;
-
-  const r1 = fromEl.getBoundingClientRect();
-  const r2 = toEl.getBoundingClientRect();
-
-  const startX = r1.left + r1.width / 2 - 19;
-  const startY = r1.top + r1.height / 2 - 27;
-  const endX = r2.left + r2.width / 2 - 19;
-  const endY = r2.top + r2.height / 2 - 27;
-
-  cardsToFly.forEach((c, idx) => {
-    setTimeout(() => {
-      const el = document.createElement('div');
-      const isRed = c.suit === '♥' || c.suit === '♦';
-      el.className = 'flying-card' + (!showFace ? ' back' : (isRed ? ' red' : ''));
-      if (showFace) el.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
-      el.style.left = startX + 'px';
-      el.style.top = startY + 'px';
-      document.body.appendChild(el);
-
-      requestAnimationFrame(() => {
-        el.style.left = (endX + (idx - 1) * 12) + 'px';
-        el.style.top = endY + 'px';
-        el.style.transform = 'scale(1.12) rotate(' + ((idx - 1) * 8) + 'deg)';
-      });
-
-      setTimeout(() => el.remove(), 800);
-    }, idx * 160);
-  });
+const fromEl = fromId === state.myId
+? document.getElementById('my-hand-zone')
+: document.getElementById('badge-' + fromId);
+const toEl = toId === state.myId
+? document.getElementById('my-hand-zone')
+: document.getElementById('badge-' + toId);
+if (!fromEl || !toEl) return;
+const r1 = fromEl.getBoundingClientRect();
+const r2 = toEl.getBoundingClientRect();
+const startX = r1.left + r1.width / 2 - 19;
+const startY = r1.top + r1.height / 2 - 27;
+const endX = r2.left + r2.width / 2 - 19;
+const endY = r2.top + r2.height / 2 - 27;
+cardsToFly.forEach((c, idx) => {
+setTimeout(() => {
+const el = document.createElement('div');
+const isRed = c.suit === '♥' || c.suit === '♦';
+el.className = 'flying-card' + (!showFace ? ' back' : (isRed ? ' red' : ''));
+if (showFace) el.innerHTML = <div>${c.rank}</div><div>${c.suit}</div>;
+el.style.left = startX + 'px';
+el.style.top = startY + 'px';
+document.body.appendChild(el);
+requestAnimationFrame(() => {
+el.style.left = (endX + (idx - 1) * 12) + 'px';
+el.style.top = endY + 'px';
+el.style.transform = 'scale(1.12) rotate(' + ((idx - 1) * 8) + 'deg)';
+});
+setTimeout(() => el.remove(), 800);
+}, idx * 160);
+});
 }
-
 function recordTableEvent(fromId, toId, rank, gotCards, guessedSuits) {
-  Object.keys(state.botMemory).forEach(botId => {
-    const mem = state.botMemory[botId];
-    mem.hasRank.add(`${fromId}_${rank}`);
-    const key = `${toId}_${rank}`;
-
-    if (gotCards) {
-      mem.noRank.add(key);
-      mem.hasRank.delete(key);
-      delete mem.failedSuits[key];
-    } else if (!guessedSuits) {
-      mem.noRank.add(key);
-      mem.hasRank.delete(key);
-    } else if (guessedSuits && guessedSuits.length > 0) {
-      mem.hasRank.add(key);
-      if (!mem.failedSuits[key]) mem.failedSuits[key] = new Set();
-      if (guessedSuits.length === 1) {
-        mem.failedSuits[key].add(guessedSuits[0]);
-      }
-    }
-  });
+Object.keys(state.botMemory).forEach(botId => {
+const mem = state.botMemory[botId];
+mem.hasRank.add(${fromId}_${rank});
+const key = ${toId}_${rank};
+if (gotCards) {
+mem.noRank.add(key);
+mem.hasRank.delete(key);
+delete mem.failedSuits[key];
+} else if (!guessedSuits) {
+mem.noRank.add(key);
+mem.hasRank.delete(key);
+} else if (guessedSuits && guessedSuits.length > 0) {
+mem.hasRank.add(key);
+if (!mem.failedSuits[key]) mem.failedSuits[key] = new Set();
+if (guessedSuits.length === 1) {
+mem.failedSuits[key].add(guessedSuits);
 }
-
+}
+});
+}
 function executeBotTurn(bot) {
-  if (state.step === 'GAME_OVER') return;
-  const targets = state.players.filter(p => p.id !== bot.id && p.hand.length > 0);
-  if (targets.length === 0) { startTurn(); return; }
-
-  const collected = getAllCollectedRanks();
-  const availableRanks = state.activeRanks.filter(r => !collected.has(r));
-  const mem = state.botMemory[bot.id];
-
-  const rankCounts = {};
-  bot.hand.forEach(c => rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1);
-  const myRanksSorted = Object.keys(rankCounts).sort((a, b) => rankCounts[b] - rankCounts[a]);
-
-  let chosenTarget = null;
-  let chosenRank = null;
-
-  for (let r of myRanksSorted) {
-    for (let t of targets) {
-      const key = `${t.id}_${r}`;
-      if (mem.hasRank.has(key) && !mem.noRank.has(key)) {
-        chosenTarget = t;
-        chosenRank = r;
-        break;
-      }
-    }
-    if (chosenTarget) break;
-  }
-
-  if (!chosenTarget && myRanksSorted.length > 0) {
-    for (let r of myRanksSorted) {
-      const validTargets = targets.filter(t => !mem.noRank.has(`${t.id}_${r}`));
-      if (validTargets.length > 0) {
-        chosenRank = r;
-        chosenTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
-        break;
-      }
-    }
-  }
-
-  if (!chosenTarget) {
-    chosenTarget = targets[Math.floor(Math.random() * targets.length)];
-    chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
-  }
-
-  state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
-  setLog(`🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`);
-
-  if (!chosenTarget.isBot) {
-    state.step = 'WAIT_ANSWER';
-    syncState();
-  } else {
-    syncState();
-    setTimeout(() => resolveHasRankAnswer(bot, chosenTarget, chosenRank), BOT_STEP_DELAY);
-  }
+if (state.step === 'GAME_OVER') return;
+const targets = state.players.filter(p => p.id !== bot.id && p.hand.length > 0);
+if (targets.length === 0) { startTurn(); return; }
+const collected = getAllCollectedRanks();
+const availableRanks = state.activeRanks.filter(r => !collected.has(r));
+const mem = state.botMemory[bot.id];
+const rankCounts = {};
+bot.hand.forEach(c => rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1);
+const myRanksSorted = Object.keys(rankCounts).sort((a, b) => rankCounts[b] - rankCounts[a]);
+let chosenTarget = null;
+let chosenRank = null;
+for (let r of myRanksSorted) {
+for (let t of targets) {
+const key = ${t.id}_${r};
+if (mem.hasRank.has(key) && !mem.noRank.has(key)) {
+chosenTarget = t;
+chosenRank = r;
+break;
 }
-
+}
+if (chosenTarget) break;
+}
+if (!chosenTarget && myRanksSorted.length > 0) {
+for (let r of myRanksSorted) {
+const validTargets = targets.filter(t => !mem.noRank.has(${t.id}_${r}));
+if (validTargets.length > 0) {
+chosenRank = r;
+chosenTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
+break;
+}
+}
+}
+if (!chosenTarget) {
+chosenTarget = targets[Math.floor(Math.random() * targets.length)];
+chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
+}
+state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
+setLog(🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»);
+syncState();
+if (!chosenTarget.isBot) {
+state.step = 'WAIT_ANSWER';
+syncState();
+} else {
+setTimeout(() => resolveHasRankAnswer(bot, chosenTarget, chosenRank), BOT_STEP_DELAY);
+}
+}
 function resolveHasRankAnswer(asker, target, rank) {
-  const matching = target.hand.filter(c => c.rank === rank);
-  if (matching.length === 0) {
-    setLog(`❌ ${target.name} отвечает: «Нет ${rank}». Ход переходит дальше.`);
-    recordTableEvent(asker.id, target.id, rank, false, null);
-    syncState();
-    setTimeout(() => advanceTurn(), BOT_STEP_DELAY);
-  } else {
-    setLog(`✅ ${target.name} отвечает: «Да, есть ${rank}!» ${asker.name} угадывает количество...`);
-    syncState();
-    setTimeout(() => {
-      const mySame = asker.hand.filter(c => c.rank === rank).length;
-      const maxPossible = Math.min(3, 4 - mySame);
-      const guessCount = Math.floor(Math.random() * maxPossible) + 1;
-
-      setLog(`🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»`);
-      syncState();
-
-      setTimeout(() => {
-        if (guessCount !== matching.length) {
-          setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
-          syncState();
-          setTimeout(() => advanceTurn(), BOT_STEP_DELAY);
-        } else {
-          setLog(`🎯 Количество угадано (${guessCount} шт.)! ${asker.name} подбирает масти...`);
-          syncState();
-
-          setTimeout(() => {
-            const mem = state.botMemory[asker.id];
-            const key = `${target.id}_${rank}`;
-            const excludedSuits = mem && mem.failedSuits[key] ? mem.failedSuits[key] : new Set();
-            const mySuits = asker.hand.filter(c => c.rank === rank).map(c => c.suit);
-
-            let possibleSuits = SUITS.filter(s => !mySuits.includes(s) && !excludedSuits.has(s));
-            if (possibleSuits.length < guessCount) {
-              possibleSuits = SUITS.filter(s => !mySuits.includes(s));
-            }
-            possibleSuits.sort(() => Math.random() - 0.5);
-            const guessSuits = possibleSuits.slice(0, guessCount);
-
-            setLog(`♠️ ${asker.name} называет: ${guessSuits.join(', ')}`);
-            syncState();
-
-            setTimeout(() => {
-              const targetSuits = matching.map(c => c.suit);
-              const allMatched = guessSuits.every(s => targetSuits.includes(s));
-
-              if (allMatched) {
-                const showFace = asker.id === state.myId || target.id === state.myId;
-                animateCardTransfer(target.id, asker.id, matching, showFace);
-                if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
-
-                target.hand = target.hand.filter(c => c.rank !== rank);
-                asker.hand.push(...matching);
-                recordTableEvent(asker.id, target.id, rank, true, guessSuits);
-
-                setLog(`🎉 ${asker.name} угадал(а) всё и забирает карты у ${target.name}!`);
-                checkChests(asker, true);
-                syncState();
-                setTimeout(() => startTurn(), BOT_STEP_DELAY);
-              } else {
-                recordTableEvent(asker.id, target.id, rank, false, guessSuits);
-                setLog(`❌ Масти не совпали! Ход переходит дальше.`);
-                syncState();
-                setTimeout(() => advanceTurn(), BOT_STEP_DELAY);
-              }
-            }, BOT_STEP_DELAY);
-          }, BOT_STEP_DELAY);
-        }
-      }, BOT_STEP_DELAY);
-    }, BOT_STEP_DELAY);
-  }
+const matching = target.hand.filter(c => c.rank === rank);
+if (matching.length === 0) {
+setLog(❌ ${target.name} отвечает: «Нет ${rank}». Ход переходит дальше.);
+recordTableEvent(asker.id, target.id, rank, false, null);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, BOT_STEP_DELAY);
+} else {
+setLog(✅ ${target.name} отвечает: «Да, есть ${rank}!» ${asker.name} угадывает количество...);
+syncState();
+setTimeout(() => {
+const mySame = asker.hand.filter(c => c.rank === rank).length;
+const maxPossible = Math.min(3, 4 - mySame);
+const guessCount = Math.floor(Math.random() * maxPossible) + 1;
+setLog(🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»);
+syncState();
+setTimeout(() => {
+if (guessCount !== matching.length) {
+setLog(❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, BOT_STEP_DELAY);
+} else {
+setLog(🎯 Количество угадано (${guessCount} шт.)! ${asker.name} подбирает масти...);
+syncState();
+setTimeout(() => {
+const mem = state.botMemory[asker.id];
+const key = ${target.id}_${rank};
+const excludedSuits = mem && mem.failedSuits[key] ? mem.failedSuits[key] : new Set();
+const mySuits = asker.hand.filter(c => c.rank === rank).map(c => c.suit);
+let possibleSuits = SUITS.filter(s => !mySuits.includes(s) && !excludedSuits.has(s));
+if (possibleSuits.length < guessCount) {
+possibleSuits = SUITS.filter(s => !mySuits.includes(s));
 }
-
+possibleSuits.sort(() => Math.random() - 0.5);
+const guessSuits = possibleSuits.slice(0, guessCount);
+setLog(♠️ ${asker.name} называет: ${guessSuits.join(', ')});
+syncState();
+setTimeout(() => {
+const targetSuits = matching.map(c => c.suit);
+const allMatched = guessSuits.every(s => targetSuits.includes(s));
+if (allMatched) {
+const showFace = asker.id === state.myId || target.id === state.myId;
+animateCardTransfer(target.id, asker.id, matching, showFace);
+if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
+target.hand = target.hand.filter(c => c.rank !== rank);
+asker.hand.push(...matching);
+recordTableEvent(asker.id, target.id, rank, true, guessSuits);
+setLog(🎉 ${asker.name} угадал(а) всё и забирает карты у ${target.name}!);
+checkChests(asker, true);
+syncState();
+setTimeout(() => startTurn(), BOT_STEP_DELAY);
+} else {
+recordTableEvent(asker.id, target.id, rank, false, guessSuits);
+setLog(❌ Масти не совпали! Ход переходит дальше.);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, BOT_STEP_DELAY);
+}
+}, BOT_STEP_DELAY);
+}, BOT_STEP_DELAY);
+}
+}, BOT_STEP_DELAY);
+}, BOT_STEP_DELAY);
+}
+}
 function handleHumanChoice(action, payload) {
-  if (state.mode === 'guest') {
-    if (hostConn && hostConn.open) {
-      hostConn.send({ type: 'ACTION', playerId: state.myId, action, payload });
-    }
-    return;
-  }
-  processHumanAction(state.myId, action, payload);
+if (state.mode === 'guest') {
+publishMsg({ type: 'ACTION', playerId: state.myId, action, payload });
+return;
 }
-
+processHumanAction(state.myId, action, payload);
+}
 function processHumanAction(playerId, action, payload) {
-  const player = state.players.find(p => p.id === playerId);
-  if (!player) return;
-
-  if (action === 'SELECT_TARGET') {
-    state.pendingAsk = { fromId: playerId, toId: payload, rank: null, count: 0, suits: [] };
-    state.step = 'SELECT_RANK';
-    const target = state.players.find(p => p.id === payload);
-    setLog(`${player.name} выбрал(а) ${target.name}. Выбор номинала...`);
-    syncState();
-  }
-  else if (action === 'SELECT_RANK') {
-    state.pendingAsk.rank = payload;
-    const target = state.players.find(p => p.id === state.pendingAsk.toId);
-    setLog(`❓ ${player.name} спрашивает у ${target.name}: «Есть ли ${payload}?»`);
-
-    if (target.isBot) {
-      state.step = 'BOT_THINKING';
-      syncState();
-      setTimeout(() => {
-        const has = target.hand.some(c => c.rank === payload);
-        if (!has) {
-          recordTableEvent(playerId, target.id, payload, false, null);
-          setLog(`❌ ${target.name} отвечает: «Нет ${payload}».`);
-          syncState();
-          setTimeout(() => advanceTurn(), 2000);
-        } else {
-          state.step = 'SELECT_COUNT';
-          setLog(`✅ ${target.name} отвечает: «Да, есть!» ${player.name} угадывает количество...`);
-          syncState();
-        }
-      }, 1500);
-    } else {
-      state.step = 'WAIT_ANSWER';
-      syncState();
-    }
-  }
-  else if (action === 'ANSWER_YES_NO') {
-    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
-    const target = state.players.find(p => p.id === state.pendingAsk.toId);
-    const rank = state.pendingAsk.rank;
-
-    if (!payload) {
-      recordTableEvent(asker.id, target.id, rank, false, null);
-      setLog(`❌ ${target.name} отвечает: «Нет ${rank}». Ход переходит дальше.`);
-      syncState();
-      setTimeout(() => advanceTurn(), 2000);
-    } else {
-      if (asker.isBot) {
-        state.step = 'BOT_THINKING';
-        resolveHasRankAnswer(asker, target, rank);
-      } else {
-        state.step = 'SELECT_COUNT';
-        setLog(`✅ ${target.name} отвечает: «Да, есть!» ${asker.name} угадывает количество...`);
-        syncState();
-      }
-    }
-  }
-  else if (action === 'SELECT_COUNT') {
-    const count = payload;
-    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
-    const target = state.players.find(p => p.id === state.pendingAsk.toId);
-    const rank = state.pendingAsk.rank;
-    const actualCount = target.hand.filter(c => c.rank === rank).length;
-
-    if (count !== actualCount) {
-      setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
-      syncState();
-      setTimeout(() => advanceTurn(), 2200);
-    } else {
-      state.pendingAsk.count = count;
-      state.pendingAsk.suits = [];
-      state.step = 'SELECT_SUITS';
-      setLog(`🎯 Верно (${count} шт.)! ${asker.name} выбирает масти (${count} шт.)...`);
-      syncState();
-    }
-  }
-  else if (action === 'SELECT_SUIT') {
-    const suit = payload;
-    const req = state.pendingAsk;
-    if (!req.suits.includes(suit)) req.suits.push(suit);
-
-    if (req.suits.length < req.count) {
-      syncState();
-      return;
-    }
-
-    const asker = state.players.find(p => p.id === req.fromId);
-    const target = state.players.find(p => p.id === req.toId);
-    const matching = target.hand.filter(c => c.rank === req.rank);
-    const targetSuits = matching.map(c => c.suit);
-    const allMatched = req.suits.every(s => targetSuits.includes(s));
-
-    if (allMatched) {
-      const showFace = asker.id === state.myId || target.id === state.myId;
-      animateCardTransfer(target.id, asker.id, matching, showFace);
-      if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
-
-      target.hand = target.hand.filter(c => c.rank !== req.rank);
-      asker.hand.push(...matching);
-      recordTableEvent(asker.id, target.id, req.rank, true, req.suits);
-
-      setLog(`🎉 ${asker.name} угадал(а) все карты и забирает их! Дополнительный ход!`);
-      checkChests(asker, true);
-      syncState();
-      setTimeout(() => startTurn(), 1800);
-    } else {
-      recordTableEvent(asker.id, target.id, req.rank, false, req.suits);
-      setLog(`❌ Масть не совпала (названо: ${req.suits.join(', ')}). Ход переходит дальше.`);
-      syncState();
-      setTimeout(() => advanceTurn(), 2200);
-    }
-  }
+const player = state.players.find(p => p.id === playerId);
+if (!player) return;
+if (action === 'SELECT_TARGET') {
+if (state.players[state.turnIndex].id !== playerId) return;
+state.pendingAsk = { fromId: playerId, toId: payload, rank: null, count: 0, suits: [] };
+state.step = 'SELECT_RANK';
+const target = state.players.find(p => p.id === payload);
+setLog(${player.name} выбрал(а) ${target.name}. Выбор номинала...);
+syncState();
 }
-
-function handleHostData(conn, data) {
-  if (data.type === 'JOIN') {
-    if (state.players.length >= 5) return;
-    const playerId = data.id || conn.peer;
-    connections[playerId] = conn;
-    if (!state.players.some(p => p.id === playerId)) {
-      state.players.push({ id: playerId, name: data.nick || 'Гость', isBot: false, hand: [], chests: [] });
-    }
-    broadcastLobby();
-  } else if (data.type === 'ACTION') {
-    const senderId = data.playerId || conn.peer;
-    processHumanAction(senderId, data.action, data.payload);
-  }
+else if (action === 'SELECT_RANK') {
+if (!state.pendingAsk || state.pendingAsk.fromId !== playerId) return;
+state.pendingAsk.rank = payload;
+const target = state.players.find(p => p.id === state.pendingAsk.toId);
+setLog(❓ ${player.name} спрашивает у ${target.name}: «Есть ли ${payload}?»);
+if (target.isBot) {
+state.step = 'BOT_THINKING';
+syncState();
+setTimeout(() => {
+const has = target.hand.some(c => c.rank === payload);
+if (!has) {
+recordTableEvent(playerId, target.id, payload, false, null);
+setLog(❌ ${target.name} отвечает: «Нет ${payload}».);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, 2000);
+} else {
+state.step = 'SELECT_COUNT';
+setLog(✅ ${target.name} отвечает: «Да, есть!» ${player.name} угадывает количество (1–3):);
+syncState();
 }
-
-function handleGuestData(data) {
-  if (data.type === 'LOBBY') {
-    state.players = data.players;
-    renderLobby();
-  } else if (data.type === 'STATE') {
-    state.players = data.players;
-    state.activeRanks = data.activeRanks;
-    state.turnIndex = data.turnIndex;
-    state.step = data.step;
-    state.pendingAsk = data.pendingAsk;
-    document.getElementById('deck-info').innerText = `Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.)`;
-    document.getElementById('game-log').innerText = data.log;
-    showScreen('screen-game');
-    renderGame();
-  } else if (data.type === 'ANIM') {
-    const showFace = data.fromId === state.myId || data.toId === state.myId;
-    animateCardTransfer(data.fromId, data.toId, data.cards, showFace);
-  }
+}, 1500);
+} else {
+state.step = 'WAIT_ANSWER';
+syncState();
 }
-
+}
+else if (action === 'ANSWER_YES_NO') {
+if (!state.pendingAsk || state.pendingAsk.toId !== playerId) return;
+const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+const target = state.players.find(p => p.id === state.pendingAsk.toId);
+const rank = state.pendingAsk.rank;
+if (!payload) {
+recordTableEvent(asker.id, target.id, rank, false, null);
+setLog(❌ ${target.name} отвечает: «Нет ${rank}».);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, 2000);
+} else {
+if (asker.isBot) {
+state.step = 'BOT_THINKING';
+resolveHasRankAnswer(asker, target, rank);
+} else {
+state.step = 'SELECT_COUNT';
+setLog(✅ ${target.name} отвечает: «Да, есть!» ${asker.name} угадывает количество...);
+syncState();
+}
+}
+}
+else if (action === 'SELECT_COUNT') {
+if (!state.pendingAsk || state.pendingAsk.fromId !== playerId) return;
+const count = payload;
+const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+const target = state.players.find(p => p.id === state.pendingAsk.toId);
+const rank = state.pendingAsk.rank;
+const actualCount = target.hand.filter(c => c.rank === rank).length;
+if (count !== actualCount) {
+setLog(❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, 2200);
+} else {
+state.pendingAsk.count = count;
+state.pendingAsk.suits = [];
+state.step = 'SELECT_SUITS';
+setLog(🎯 Верно (${count} шт.)! ${asker.name} выбирает масть (${count} шт.):);
+syncState();
+}
+}
+else if (action === 'SELECT_SUIT') {
+if (!state.pendingAsk || state.pendingAsk.fromId !== playerId) return;
+const suit = payload;
+const req = state.pendingAsk;
+if (!req.suits.includes(suit)) req.suits.push(suit);
+if (req.suits.length < req.count) {
+syncState();
+return;
+}
+const asker = state.players.find(p => p.id === req.fromId);
+const target = state.players.find(p => p.id === req.toId);
+const matching = target.hand.filter(c => c.rank === req.rank);
+const targetSuits = matching.map(c => c.suit);
+const allMatched = req.suits.every(s => targetSuits.includes(s));
+if (allMatched) {
+const showFace = asker.id === state.myId || target.id === state.myId;
+animateCardTransfer(target.id, asker.id, matching, showFace);
+if (state.mode === 'host') broadcastAnim(target.id, asker.id, matching);
+target.hand = target.hand.filter(c => c.rank !== req.rank);
+asker.hand.push(...matching);
+recordTableEvent(asker.id, target.id, req.rank, true, req.suits);
+setLog(🎉 ${asker.name} угадал(а) все карты и забирает их! Дополнительный ход!);
+checkChests(asker, true);
+syncState();
+setTimeout(() => startTurn(), 1800);
+} else {
+recordTableEvent(asker.id, target.id, req.rank, false, req.suits);
+setLog(❌ Масть не совпала (названо: ${req.suits.join(', ')}). Ход переходит дальше.);
+syncState();
+setTimeout(() => {
+state.turnIndex = (state.turnIndex + 1) % state.players.length;
+startTurn();
+}, 2200);
+}
+}
+}
+function handleHostMessage(data) {
+if (data.type === 'JOIN') {
+if (gameStarted || state.players.length >= 5) return;
+if (!state.players.some(p => p.id === data.playerId)) {
+state.players.push({ id: data.playerId, name: data.nick || 'Гость', isBot: false, hand: [], chests: [] });
+}
+broadcastLobby();
+} else if (data.type === 'LEAVE') {
+if (!gameStarted) {
+state.players = state.players.filter(p => p.id !== data.playerId);
+broadcastLobby();
+}
+} else if (data.type === 'ACTION') {
+processHumanAction(data.playerId, data.action, data.payload);
+}
+}
+function handleGuestMessage(data) {
+if (data.type === 'LOBBY') {
+state.players = data.players;
+renderLobby();
+} else if (data.type === 'HOST_CLOSED') {
+alert('Создатель комнаты закрыл игру');
+cleanupNetwork();
+showScreen('screen-menu');
+} else if (data.type === 'STATE') {
+state.players = data.players.map(p => ({
+...p,
+hand: (p.id === state.myId && data.handsMap && data.handsMap[state.myId]) ? data.handsMap[state.myId] : []
+}));
+state.activeRanks = data.activeRanks;
+state.turnIndex = data.turnIndex;
+state.step = data.step;
+state.pendingAsk = data.pendingAsk;
+document.getElementById('game-log').innerText = data.log;
+document.getElementById('deck-info').innerText = Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.);
+showScreen('screen-game');
+renderGame();
+} else if (data.type === 'ANIM') {
+const showFace = data.fromId === state.myId || data.toId === state.myId;
+animateCardTransfer(data.fromId, data.toId, data.cards, showFace);
+}
+}
 function broadcastAnim(fromId, toId, cards) {
-  Object.values(connections).forEach(c => {
-    if (c.open) c.send({ type: 'ANIM', fromId, toId, cards });
-  });
+publishMsg({ type: 'ANIM', fromId, toId, cards });
 }
-
 function syncState() {
-  renderGame();
-  if (state.mode === 'host') {
-    const logText = document.getElementById('game-log').innerText;
-    Object.entries(connections).forEach(([peerId, conn]) => {
-      if (!conn.open) return;
-      const sanitizedPlayers = state.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        isBot: p.isBot,
-        chests: p.chests,
-        handCount: p.hand.length,
-        hand: p.id === peerId ? p.hand : []
-      }));
-      conn.send({
-        type: 'STATE',
-        players: sanitizedPlayers,
-        activeRanks: state.activeRanks,
-        turnIndex: state.turnIndex,
-        step: state.step,
-        pendingAsk: state.pendingAsk,
-        log: logText
-      });
-    });
-  }
+renderGame();
+if (state.mode === 'host') {
+const logText = document.getElementById('game-log').innerText;
+const handsMap = {};
+const publicPlayers = state.players.map(p => {
+handsMap[p.id] = p.hand;
+return {
+id: p.id,
+name: p.name,
+isBot: p.isBot,
+chests: p.chests,
+handCount: p.hand.length
+};
+});
+publishMsg({
+type: 'STATE',
+players: publicPlayers,
+handsMap: handsMap,
+activeRanks: state.activeRanks,
+turnIndex: state.turnIndex,
+step: state.step,
+pendingAsk: state.pendingAsk,
+log: logText
+});
 }
-
+}
 function setLog(text) {
-  document.getElementById('game-log').innerText = text;
+document.getElementById('game-log').innerText = text;
 }
-
 function getOpponentPositions(oppCount) {
-  if (oppCount === 1) return ['pos-top-center'];
-  if (oppCount === 2) return ['pos-top-left', 'pos-top-right'];
-  if (oppCount === 3) return ['pos-mid-left', 'pos-top-center', 'pos-mid-right'];
-  return ['pos-top-left', 'pos-top-right', 'pos-bot-left', 'pos-bot-right'];
+if (oppCount === 1) return ['pos-top-center'];
+if (oppCount === 2) return ['pos-top-left', 'pos-top-right'];
+if (oppCount === 3) return ['pos-mid-left', 'pos-top-center', 'pos-mid-right'];
+return ['pos-top-left', 'pos-top-right', 'pos-bot-left', 'pos-bot-right'];
 }
-
 function renderGame() {
-  const me = state.players.find(p => p.id === state.myId);
-  if (!me) return;
-
-  const currentPlayer = state.players[state.turnIndex];
-  const isMyTurn = currentPlayer && currentPlayer.id === state.myId;
-
-  const oppLayer = document.getElementById('opponents-layer');
-  oppLayer.innerHTML = '';
-  const opponents = state.players.filter(p => p.id !== state.myId);
-  const posClasses = getOpponentPositions(opponents.length);
-
-  opponents.forEach((p, idx) => {
-    const count = (p.hand && p.hand.length > 0) ? p.hand.length : (p.handCount || 0);
-    const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
-
-    const div = document.createElement('div');
-    div.id = 'badge-' + p.id;
-    div.className = 'player-badge ' + posClasses[idx] +
-      (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
-      (canSelect ? ' selectable' : '');
-    div.innerHTML = `
-      <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
-      <div class="p-stats">
-        <span>🃏 <b>${count}</b></span>
-        <span>📦 <b>${p.chests.length}</b></span>
-      </div>
-    `;
-    if (canSelect) {
-      div.onclick = () => { haptic('light'); handleHumanChoice('SELECT_TARGET', p.id); };
-    }
-    oppLayer.appendChild(div);
-  });
-
-  const ansModal = document.getElementById('answer-modal');
-  let highlightRank = null;
-
-  if (state.step === 'WAIT_ANSWER' && state.pendingAsk && state.pendingAsk.toId === state.myId) {
-    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
-    highlightRank = state.pendingAsk.rank;
-    const hasCard = me.hand.some(c => c.rank === highlightRank);
-
-    ansModal.style.display = 'block';
-    document.getElementById('answer-question').innerText =
-      `${asker.name} спрашивает: «Есть ли ${highlightRank}?»`;
-
-    const btnYes = document.getElementById('btn-ans-yes');
-    const btnNo = document.getElementById('btn-ans-no');
-    btnYes.disabled = !hasCard;
-    btnNo.disabled = hasCard;
-
-    btnYes.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', true); };
-    btnNo.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', false); };
-  } else {
-    ansModal.style.display = 'none';
-  }
-
-  const turnPanel = document.getElementById('turn-panel');
-  const turnChoices = document.getElementById('turn-choices');
-  const turnPrompt = document.getElementById('turn-prompt');
-
-  if (isMyTurn && ['SELECT_TARGET', 'SELECT_RANK', 'SELECT_COUNT', 'SELECT_SUITS'].includes(state.step)) {
-    turnPanel.style.display = 'block';
-    turnChoices.innerHTML = '';
-
-    if (state.step === 'SELECT_TARGET') {
-      turnPrompt.innerText = '👆 Нажмите на соперника по краям стола';
-    }
-    else if (state.step === 'SELECT_RANK') {
-      turnPrompt.innerText = 'Выберите номинал (можно любой):';
-      const grid = document.createElement('div');
-      grid.className = 'grid-ranks';
-      const collected = getAllCollectedRanks();
-      const myRanks = new Set(me.hand.map(c => c.rank));
-
-      state.activeRanks.forEach(r => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn' + (myRanks.has(r) ? ' in-hand' : '');
-        btn.innerText = r;
-        btn.disabled = collected.has(r);
-        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_RANK', r); };
-        grid.appendChild(btn);
-      });
-      turnChoices.appendChild(grid);
-    }
-    else if (state.step === 'SELECT_COUNT') {
-      turnPrompt.innerText = `Сколько карт «${state.pendingAsk.rank}» у соперника?`;
-      const grid = document.createElement('div');
-      grid.className = 'grid-nums';
-      [1, 2, 3].forEach(num => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.innerText = `${num} шт.`;
-        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_COUNT', num); };
-        grid.appendChild(btn);
-      });
-      turnChoices.appendChild(grid);
-    }
-    else if (state.step === 'SELECT_SUITS') {
-      const rem = state.pendingAsk.count - state.pendingAsk.suits.length;
-      turnPrompt.innerText = `Выберите масть (осталось: ${rem}):`;
-      const grid = document.createElement('div');
-      grid.className = 'grid-suits';
-      const mySuits = me.hand.filter(c => c.rank === state.pendingAsk.rank).map(c => c.suit);
-
-      SUITS.forEach(s => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn';
-        btn.style.color = (s === '♥' || s === '♦') ? '#ff8a80' : '#fff';
-        btn.innerText = s;
-        btn.disabled = mySuits.includes(s) || state.pendingAsk.suits.includes(s);
-        btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_SUIT', s); };
-        grid.appendChild(btn);
-      });
-      turnChoices.appendChild(grid);
-    }
-  } else {
-    turnPanel.style.display = 'none';
-  }
-
-  document.getElementById('my-name-label').innerText = `👤 ${me.name}`;
-  document.getElementById('my-chests').innerText = me.chests.length;
-  document.getElementById('my-cards-count').innerText = me.hand.length;
-
-  const cardsWrap = document.getElementById('my-cards');
-  cardsWrap.innerHTML = '';
-  const sortedHand = [...me.hand].sort((a, b) => state.activeRanks.indexOf(a.rank) - state.activeRanks.indexOf(b.rank));
-
-  sortedHand.forEach(c => {
-    const div = document.createElement('div');
-    const isRed = c.suit === '♥' || c.suit === '♦';
-    const isHighlighted = highlightRank && c.rank === highlightRank;
-    div.className = 'card' + (isRed ? ' red' : '') + (isHighlighted ? ' highlight' : '');
-    div.innerHTML = `<div>${c.rank}</div><div>${c.suit}</div>`;
-    cardsWrap.appendChild(div);
-  });
+const me = state.players.find(p => p.id === state.myId);
+if (!me) return;
+const currentPlayer = state.players[state.turnIndex];
+const isMyTurn = currentPlayer && currentPlayer.id === state.myId;
+const oppLayer = document.getElementById('opponents-layer');
+oppLayer.innerHTML = '';
+const opponents = state.players.filter(p => p.id !== state.myId);
+const posClasses = getOpponentPositions(opponents.length);
+opponents.forEach((p, idx) => {
+const count = (p.hand && p.hand.length > 0) ? p.hand.length : (p.handCount || 0);
+const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
+const div = document.createElement('div');
+div.id = 'badge-' + p.id;
+div.className = 'player-badge ' + posClasses[idx] +
+(currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
+(canSelect ? ' selectable' : '');
+div.innerHTML = <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div> <div class="p-stats"> <span>🃏 <b>${count}</b></span> <span>📦 <b>${p.chests.length}</b></span> </div>;
+if (canSelect) {
+div.onclick = () => { haptic('light'); handleHumanChoice('SELECT_TARGET', p.id); };
 }
-</script>
-</body>
-</html>
+oppLayer.appendChild(div);
+});
+const ansModal = document.getElementById('answer-modal');
+let highlightRank = null;
+if (state.step === 'WAIT_ANSWER' && state.pendingAsk && state.pendingAsk.toId === state.myId) {
+const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
+highlightRank = state.pendingAsk.rank;
+const hasCard = me.hand.some(c => c.rank === highlightRank);
+ansModal.style.display = 'block';
+document.getElementById('answer-question').innerText =
+${asker.name} спрашивает: «Есть ли ${highlightRank}?»;
+const btnYes = document.getElementById('btn-ans-yes');
+const btnNo = document.getElementById('btn-ans-no');
+btnYes.disabled = !hasCard;
+btnNo.disabled = hasCard;
+btnYes.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', true); };
+btnNo.onclick = () => { haptic('medium'); handleHumanChoice('ANSWER_YES_NO', false); };
+} else {
+ansModal.style.display = 'none';
+}
+const turnPanel = document.getElementById('turn-panel');
+const turnChoices = document.getElementById('turn-choices');
+const turnPrompt = document.getElementById('turn-prompt');
+if (isMyTurn && ['SELECT_TARGET', 'SELECT_RANK', 'SELECT_COUNT', 'SELECT_SUITS'].includes(state.step)) {
+turnPanel.style.display = 'block';
+turnChoices.innerHTML = '';
+if (state.step === 'SELECT_TARGET') {
+turnPrompt.innerText = '👆 Нажмите на соперника по краям стола';
+}
+else if (state.step === 'SELECT_RANK') {
+turnPrompt.innerText = 'Выберите номинал (можно любой):';
+const grid = document.createElement('div');
+grid.className = 'grid-ranks';
+const collected = getAllCollectedRanks();
+const myRanks = new Set(me.hand.map(c => c.rank));
+state.activeRanks.forEach(r => {
+const btn = document.createElement('button');
+btn.type = 'button';
+btn.className = 'choice-btn' + (myRanks.has(r) ? ' in-hand' : '');
+btn.innerText = r;
+btn.disabled = collected.has(r);
+btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_RANK', r); };
+grid.appendChild(btn);
+});
+turnChoices.appendChild(grid);
+}
+else if (state.step === 'SELECT_COUNT') {
+turnPrompt.innerText = Сколько карт «${state.pendingAsk.rank}» у соперника?;
+const grid = document.createElement('div');
+grid.className = 'grid-nums';
+NUM_OPTIONS.forEach(num => {
+const btn = document.createElement('button');
+btn.type = 'button';
+btn.className = 'choice-btn';
+btn.innerText = ${num} шт.;
+btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_COUNT', num); };
+grid.appendChild(btn);
+});
+turnChoices.appendChild(grid);
+}
+else if (state.step === 'SELECT_SUITS') {
+const rem = state.pendingAsk.count - state.pendingAsk.suits.length;
+turnPrompt.innerText = Выберите масть (осталось: ${rem}):;
+const grid = document.createElement('div');
+grid.className = 'grid-suits';
+const mySuits = me.hand.filter(c => c.rank === state.pendingAsk.rank).map(c => c.suit);
+SUITS.forEach(s => {
+const btn = document.createElement('button');
+btn.type = 'button';
+btn.className = 'choice-btn';
+btn.style.color = (s === '♥' || s === '♦') ? '#ff8a80' : '#fff';
+btn.innerText = s;
+btn.disabled = mySuits.includes(s) || state.pendingAsk.suits.includes(s);
+btn.onclick = () => { haptic('light'); handleHumanChoice('SELECT_SUIT', s); };
+grid.appendChild(btn);
+});
+turnChoices.appendChild(grid);
+}
+} else {
+turnPanel.style.display = 'none';
+}
+document.getElementById('my-name-label').innerText = 👤 ${me.name};
+document.getElementById('my-chests').innerText = me.chests.length;
+document.getElementById('my-cards-count').innerText = me.hand.length;
+const cardsWrap = document.getElementById('my-cards');
+cardsWrap.innerHTML = '';
+const sortedHand = [...me.hand].sort((a, b) => state.activeRanks.indexOf(a.rank) - state.activeRanks.indexOf(b.rank));
+sortedHand.forEach(c => {
+const div = document.createElement('div');
+const isRed = c.suit === '♥' || c.suit === '♦';
+const isHighlighted = highlightRank && c.rank === highlightRank;
+div.className = 'card' + (isRed ? ' red' : '') + (isHighlighted ? ' highlight' : '');
+div.innerHTML = <div>${c.rank}</div><div>${c.suit}</div>;
+cardsWrap.appendChild(div);
+});
+}
