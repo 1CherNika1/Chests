@@ -16,6 +16,8 @@
   .screen { display: none; flex-direction: column; width: 100%; max-width: 520px; margin: 0 auto; height: 100%; }
   .screen.active { display: flex; }
 
+  #screen-menu { position: relative; }
+  .version-label { position: fixed; right: 14px; bottom: 10px; color: rgba(255,255,255,0.62); font-size: 11px; letter-spacing: 0.4px; }
   .card-box { background: rgba(0, 0, 0, 0.28); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); margin: auto 0; }
   h1 { text-align: center; margin: 4px 0; font-size: 26px; color: #ffd54f; }
   .subtitle { text-align: center; font-size: 13px; color: #a5d6a7; margin-bottom: 12px; }
@@ -65,18 +67,18 @@
   .pos-bot-right { bottom: 0; right: 0; }
 
   .center-table {
-    width: 100%; max-width: 340px; z-index: 15;
+    width: 100%; max-width: 300px; z-index: 15;
     display: flex; flex-direction: column; gap: 8px; padding: 0 6px;
   }
   .request-card {
-    display: none; align-self: center; min-width: 76px; min-height: 86px;
-    padding: 8px 12px; border-radius: 10px; border: 2px solid #ffd54f;
+    display: none; align-self: center; min-width: 68px; min-height: 78px;
+    padding: 7px 10px; border-radius: 10px; border: 2px solid #ffd54f;
     background: linear-gradient(145deg, #fff, #e9edf2); color: #1b3550;
     box-shadow: 0 5px 16px rgba(0,0,0,0.42); text-align: center;
     flex-direction: column; align-items: center; justify-content: center;
   }
-  .request-card .request-rank { font-size: 30px; line-height: 1.1; font-weight: 800; }
-  .request-card .request-mark { font-size: 23px; line-height: 1; color: #c62828; }
+  .request-card .request-rank { font-size: 27px; line-height: 1.1; font-weight: 800; }
+  .request-card .request-mark { font-size: 20px; line-height: 1; color: #c62828; }
   .log-box {
     background: rgba(11, 36, 28, 0.96); border: 1px solid #2e7d32; border-radius: 10px;
     padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.35;
@@ -143,7 +145,7 @@
 <div id="screen-menu" class="screen active">
   <div class="card-box">
     <h1>🃏 Сундучки</h1>
-    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–5 игроков • v0.4</div>
+    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–5 игроков</div>
 
     <label for="player-nick">Ваш никнейм:</label>
     <input type="text" id="player-nick" placeholder="Введите имя" maxlength="16">
@@ -162,6 +164,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
+  <div class="version-label">v0.4</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -235,9 +238,9 @@
         <path d="M0,0 L10,5 L0,10 Z" fill="#ffd54f"></path>
       </marker>
     </defs>
-    <line id="ask-arrow-line" x1="0" y1="0" x2="0" y2="0"
-      stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round"
-      marker-end="url(#ask-arrow-head)" style="display:none; filter:drop-shadow(0 1px 3px #000);"></line>
+    <path id="ask-arrow-line" d="M 0 0 Q 0 0 0 0"
+      fill="none" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round"
+      marker-end="url(#ask-arrow-head)" style="display:none; filter:drop-shadow(0 1px 3px #000);"></path>
   </svg>
 
   <!-- Лог игры теперь внизу, над картами -->
@@ -562,7 +565,8 @@ function joinOnlineRoom() {
         try { peer.destroy(); } catch (e) {}
         return;
       }
-      if (data.type === 'LOBBY' && !joinedConfirmed) {
+      if (data.type === 'LOBBY' && !joinedConfirmed && Array.isArray(data.players)
+          && data.players.some(player => player && player.id === state.myId)) {
         joinedConfirmed = true;
         clearTimeout(timeoutTimer);
         clearAllTimers();
@@ -1416,13 +1420,17 @@ function renderAskArrow() {
   const y1 = a.top + a.height / 2;
   const x2 = b.left + b.width / 2;
   const y2 = b.top + b.height / 2;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  // Смещаем контрольную точку перпендикулярно направлению — получается мягкая дуга.
+  const bend = Math.min(88, Math.max(42, length * 0.16));
+  const cx = (x1 + x2) / 2 - (dy / length) * bend;
+  const cy = (y1 + y2) / 2 + (dx / length) * bend;
   svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
   svg.setAttribute('width', window.innerWidth);
   svg.setAttribute('height', window.innerHeight);
-  line.setAttribute('x1', x1);
-  line.setAttribute('y1', y1);
-  line.setAttribute('x2', x2);
-  line.setAttribute('y2', y2);
+  line.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
   line.style.display = 'block';
 }
 </script>
