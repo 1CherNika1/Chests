@@ -251,8 +251,15 @@ const PEER_CONFIG = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' }
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   }
 };
@@ -446,7 +453,7 @@ function createOnlineRoom() {
       } else {
         leftPlayer.isBot = true;
         leftPlayer.name = leftPlayer.name + ' (Бот)';
-        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {} };
+        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
         setLog(`⚠️ ${leftPlayer.name} отключился. Его заменил бот.`);
         if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
           startTurn();
@@ -494,6 +501,7 @@ function joinOnlineRoom() {
   peer = new Peer(PEER_CONFIG);
 
   let joinedConfirmed = false;
+  let reconnectAttempts = 0;
   const timeoutTimer = setTimeout(() => {
     if (!joinedConfirmed) {
       clearAllTimers();
@@ -501,67 +509,84 @@ function joinOnlineRoom() {
       setMpStatus('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
       try { peer.destroy(); } catch (e) {}
     }
-  }, 12000);
+  }, 20000);
 
   peer.on('open', id => {
     state.myId = id;
-    hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true, serialization: 'json' });
 
-    const sendJoinRequest = () => {
-      if (hostConn && hostConn.open && !joinedConfirmed) {
-        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
-      }
+    const connectToHost = () => {
+      hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true, serialization: 'json' });
+
+      const sendJoinRequest = () => {
+        if (hostConn && hostConn.open && !joinedConfirmed) {
+          hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
+        }
+      };
+
+      hostConn.on('open', () => {
+        sendJoinRequest();
+        if (joinRetryTimer) clearInterval(joinRetryTimer);
+        joinRetryTimer = setInterval(() => {
+          if (joinedConfirmed) {
+            clearInterval(joinRetryTimer);
+            joinRetryTimer = null;
+          } else {
+            sendJoinRequest();
+          }
+        }, 800);
+      });
+
+      hostConn.on('data', data => {
+        if (data.type === 'ROOM_FULL') {
+          clearTimeout(timeoutTimer);
+          clearAllTimers();
+          btnJoin.disabled = false;
+          setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
+          try { peer.destroy(); } catch (e) {}
+          return;
+        }
+        if (data.type === 'LOBBY' && !joinedConfirmed) {
+          // Подтверждаем вход только когда гость видит СЕБЯ в списке
+          if (!data.players || !data.players.some(p => p.id === state.myId)) {
+            return;
+          }
+          joinedConfirmed = true;
+          clearTimeout(timeoutTimer);
+          clearAllTimers();
+          btnJoin.disabled = false;
+          setMpStatus('');
+          document.getElementById('lobby-code').innerText = rawCode;
+          document.getElementById('host-controls').style.display = 'none';
+          document.getElementById('guest-wait').style.display = 'block';
+          showScreen('screen-lobby');
+        }
+        handleGuestData(data);
+      });
+
+      hostConn.on('close', () => {
+        if (!joinedConfirmed && reconnectAttempts < 3) {
+          reconnectAttempts++;
+          setMpStatus('Связь прервана, переподключаемся (' + reconnectAttempts + '/3)...');
+          setTimeout(connectToHost, 1500);
+          return;
+        }
+        clearTimeout(timeoutTimer);
+        clearAllTimers();
+        btnJoin.disabled = false;
+        if (joinedConfirmed) {
+          alert('Создатель комнаты закрыл игру');
+          showScreen('screen-menu');
+        }
+      });
+
+      hostConn.on('error', () => {
+        if (!joinedConfirmed) {
+          setMpStatus('❌ Ошибка соединения с комнатой, пробуем ещё раз...');
+        }
+      });
     };
 
-    hostConn.on('open', () => {
-      sendJoinRequest();
-      joinRetryTimer = setInterval(() => {
-        if (joinedConfirmed) {
-          clearInterval(joinRetryTimer);
-          joinRetryTimer = null;
-        } else {
-          sendJoinRequest();
-        }
-      }, 800);
-    });
-
-    hostConn.on('data', data => {
-      if (data.type === 'ROOM_FULL') {
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
-        try { peer.destroy(); } catch (e) {}
-        return;
-      }
-      if (data.type === 'LOBBY' && !joinedConfirmed) {
-        joinedConfirmed = true;
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('');
-        document.getElementById('lobby-code').innerText = rawCode;
-        document.getElementById('host-controls').style.display = 'none';
-        document.getElementById('guest-wait').style.display = 'block';
-        showScreen('screen-lobby');
-      }
-      handleGuestData(data);
-    });
-
-    hostConn.on('close', () => {
-      clearTimeout(timeoutTimer);
-      clearAllTimers();
-      btnJoin.disabled = false;
-      alert('Создатель комнаты закрыл игру');
-      showScreen('screen-menu');
-    });
-
-    hostConn.on('error', () => {
-      clearTimeout(timeoutTimer);
-      clearAllTimers();
-      btnJoin.disabled = false;
-      setMpStatus('❌ Ошибка соединения с комнатой.');
-    });
+    connectToHost();
   });
 
   peer.on('error', err => {
@@ -589,9 +614,9 @@ function addBotToLobby() {
 function broadcastLobby() {
   renderLobby();
   const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
-  Object.values(connections).forEach(c => {
+  Object.entries(connections).forEach(([pid, c]) => {
     if (c && c.open) {
-      try { c.send({ type: 'LOBBY', players: list }); } catch (e) {}
+      try { c.send({ type: 'LOBBY', players: list, you: pid }); } catch (e) {}
     }
   });
 }
@@ -663,6 +688,7 @@ function initMatch() {
   }
 
   state.botMemory = {};
+  state.lastBotAsk = null;
   state.players.forEach(p => {
     if (p.isBot) {
       state.botMemory[p.id] = {
@@ -739,15 +765,6 @@ function startTurn() {
   }
 
   const current = state.players[state.turnIndex];
-  const opponentsWithCards = state.players.filter(p => p.id !== current.id && p.hand.length > 0);
-  if (opponentsWithCards.length === 0) {
-    state.step = 'GAME_OVER';
-    setLog(`🏆 Карты на руках остались только у ${current.name} — играть больше не с кем. Игра окончена!`);
-    document.getElementById('turn-panel').style.display = 'none';
-    document.getElementById('answer-modal').style.display = 'none';
-    syncState();
-    return;
-  }
   state.pendingAsk = null;
 
   if (current.isBot) {
@@ -805,47 +822,23 @@ function animateCardTransfer(fromId, toId, cardsToFly, showFace) {
 function recordTableEvent(fromId, toId, rank, gotCards, guessedSuits) {
   Object.keys(state.botMemory).forEach(botId => {
     const mem = state.botMemory[botId];
-    const toKey = `${toId}_${rank}`;
-    const fromKey = `${fromId}_${rank}`;
+    mem.hasRank.add(`${fromId}_${rank}`);
+    const key = `${toId}_${rank}`;
 
     if (gotCards) {
-      // Цель отдала все карты этого номинала — у неё их больше нет
-      mem.noRank.add(toKey);
-      mem.hasRank.delete(toKey);
-      delete mem.failedSuits[toKey];
-      if (mem.failedCounts) delete mem.failedCounts[toKey];
-      // А тот, кто забрал карты, теперь точно держит этот номинал
-      mem.hasRank.add(fromKey);
-      mem.noRank.delete(fromKey);
-      delete mem.failedSuits[fromKey];
-      if (mem.failedCounts) delete mem.failedCounts[fromKey];
+      mem.noRank.add(key);
+      mem.hasRank.delete(key);
+      delete mem.failedSuits[key];
+      if (mem.failedCounts) delete mem.failedCounts[key];
     } else if (!guessedSuits) {
-      mem.hasRank.add(fromKey);
-      mem.noRank.add(toKey);
-      mem.hasRank.delete(toKey);
+      mem.noRank.add(key);
+      mem.hasRank.delete(key);
     } else if (guessedSuits && guessedSuits.length > 0) {
-      mem.hasRank.add(fromKey);
-      mem.hasRank.add(toKey);
-      if (!mem.failedSuits[toKey]) mem.failedSuits[toKey] = new Set();
+      mem.hasRank.add(key);
+      if (!mem.failedSuits[key]) mem.failedSuits[key] = new Set();
       if (guessedSuits.length === 1) {
-        mem.failedSuits[toKey].add(guessedSuits[0]);
+        mem.failedSuits[key].add(guessedSuits[0]);
       }
-    }
-  });
-}
-
-// Цель призналась, что номинал у неё есть (например, после промаха в количестве)
-function recordHasInfo(fromId, toId, rank, failedCount) {
-  Object.keys(state.botMemory).forEach(botId => {
-    const mem = state.botMemory[botId];
-    const key = `${toId}_${rank}`;
-    mem.hasRank.add(key);
-    mem.noRank.delete(key);
-    mem.hasRank.add(`${fromId}_${rank}`);
-    if (failedCount != null) {
-      if (!mem.failedCounts) mem.failedCounts = {};
-      if (!mem.failedCounts[key]) mem.failedCounts[key] = new Set();
-      mem.failedCounts[key].add(failedCount);
     }
   });
 }
@@ -853,23 +846,11 @@ function recordHasInfo(fromId, toId, rank, failedCount) {
 function executeBotTurn(bot) {
   if (state.step === 'GAME_OVER') return;
   const targets = state.players.filter(p => p.id !== bot.id && p.hand.length > 0);
-  if (targets.length === 0) {
-    // Спрашивать некого: карты остались только у одного игрока
-    state.step = 'GAME_OVER';
-    setLog('🏆 Спрашивать больше некого — игра окончена!');
-    document.getElementById('turn-panel').style.display = 'none';
-    document.getElementById('answer-modal').style.display = 'none';
-    syncState();
-    return;
-  }
+  if (targets.length === 0) { startTurn(); return; }
 
   const collected = getAllCollectedRanks();
-  let availableRanks = state.activeRanks.filter(r => !collected.has(r));
-  if (availableRanks.length === 0) availableRanks = [...state.activeRanks];
-  if (!state.botMemory[bot.id]) {
-    state.botMemory[bot.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {} };
-  }
-  const mem = state.botMemory[bot.id];
+  const availableRanks = state.activeRanks.filter(r => !collected.has(r));
+  const mem = state.botMemory[bot.id] || { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {} };
 
   const rankCounts = {};
   bot.hand.forEach(c => rankCounts[c.rank] = (rankCounts[c.rank] || 0) + 1);
@@ -878,7 +859,6 @@ function executeBotTurn(bot) {
   let chosenTarget = null;
   let chosenRank = null;
 
-  // 1) Бот точно знает, что у цели есть нужный номинал — спрашиваем в первую очередь
   for (let r of myRanksSorted) {
     for (let t of targets) {
       const key = `${t.id}_${r}`;
@@ -891,8 +871,7 @@ function executeBotTurn(bot) {
     if (chosenTarget) break;
   }
 
-  // 2) Неизвестные пары — исключаем то, про что уже ответили «нет»
-  if (!chosenTarget) {
+  if (!chosenTarget && myRanksSorted.length > 0) {
     for (let r of myRanksSorted) {
       const validTargets = targets.filter(t => !mem.noRank.has(`${t.id}_${r}`));
       if (validTargets.length > 0) {
@@ -903,30 +882,49 @@ function executeBotTurn(bot) {
     }
   }
 
-  // 3) Всё проверено — берём наименее «заезженный» вариант, чтобы не повторять одни и те же вопросы
   if (!chosenTarget) {
-    const rankPool = [...new Set([...myRanksSorted, ...availableRanks])];
-    const candidates = [];
-    for (let r of rankPool) {
+    const lastAsk = (state.lastBotAsk && state.lastBotAsk.fromId === bot.id) ? state.lastBotAsk : null;
+    let candidates = [];
+    for (let r of myRanksSorted) {
       for (let t of targets) {
         const key = `${t.id}_${r}`;
-        const score = (mem.noRank.has(key) ? 2 : 0) +
-          (mem.hasRank.has(key) ? -2 : 0) +
-          (mem.lastAsk && mem.lastAsk.toId === t.id && mem.lastAsk.rank === r ? 3 : 0);
-        candidates.push({ t, r, score });
+        if (mem.noRank.has(key)) continue;
+        if (lastAsk && lastAsk.toId === t.id && lastAsk.rank === r) continue;
+        candidates.push({ t, r });
       }
     }
-    candidates.sort((a, b) => a.score - b.score);
+    if (candidates.length === 0) {
+      for (let r of myRanksSorted) {
+        for (let t of targets) {
+          if (mem.noRank.has(`${t.id}_${r}`)) continue;
+          candidates.push({ t, r });
+        }
+      }
+    }
+    if (candidates.length === 0) {
+      for (let r of availableRanks) {
+        for (let t of targets) {
+          if (mem.noRank.has(`${t.id}_${r}`)) continue;
+          candidates.push({ t, r });
+        }
+      }
+    }
+    if (candidates.length === 0) {
+      for (let t of targets) {
+        for (let r of availableRanks) candidates.push({ t, r });
+      }
+    }
     if (candidates.length > 0) {
-      chosenTarget = candidates[0].t;
-      chosenRank = candidates[0].r;
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      chosenTarget = pick.t;
+      chosenRank = pick.r;
+    } else {
+      chosenTarget = targets[0];
+      chosenRank = availableRanks[0];
     }
   }
 
-  if (!chosenTarget) { startTurn(); return; }
-
-  // Запоминаем свой последний вопрос, чтобы не дублировать его подряд
-  mem.lastAsk = { toId: chosenTarget.id, rank: chosenRank };
+  state.lastBotAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank };
 
   state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
   setLog(`🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`);
@@ -934,14 +932,15 @@ function executeBotTurn(bot) {
   if (!chosenTarget.isBot) {
     state.step = 'WAIT_ANSWER';
     syncState();
-    // Страховка: если игрок молчит, через минуту ответ фиксируется по его картам
-    scheduleStep(() => {
-      if (state.step === 'WAIT_ANSWER' && state.pendingAsk &&
-          state.pendingAsk.fromId === bot.id && state.pendingAsk.toId === chosenTarget.id) {
-        setLog(`⏳ ${chosenTarget.name} не отвечает — ответ зафиксирован по картам на руках.`);
-        resolveHasRankAnswer(bot, chosenTarget, chosenRank);
+    // Страховка: если живой игрок не ответил за 60 сек — отвечаем по его реальным картам
+    const thisAsk = state.pendingAsk;
+    setTimeout(() => {
+      if (state.step === 'WAIT_ANSWER' && state.pendingAsk === thisAsk &&
+          (state.mode === 'solo' || state.mode === 'host')) {
+        const hasCard = chosenTarget.hand.some(c => c.rank === chosenRank);
+        processHumanAction(chosenTarget.id, 'ANSWER_YES_NO', hasCard);
       }
-    }, 45000);
+    }, 60000);
   } else {
     syncState();
     scheduleStep(() => resolveHasRankAnswer(bot, chosenTarget, chosenRank), BOT_STEP_DELAY);
@@ -962,20 +961,35 @@ function resolveHasRankAnswer(asker, target, rank) {
     scheduleStep(() => {
       const mySame = asker.hand.filter(c => c.rank === rank).length;
       const maxPossible = Math.min(3, 4 - mySame);
-      const memA = state.botMemory[asker.id];
-      const keyA = `${target.id}_${rank}`;
-      const failedCounts = (memA && memA.failedCounts && memA.failedCounts[keyA]) ? memA.failedCounts[keyA] : new Set();
-      let options = [];
-      for (let n = 1; n <= maxPossible; n++) if (!failedCounts.has(n)) options.push(n);
-      if (options.length === 0) for (let n = 1; n <= maxPossible; n++) options.push(n);
-      const guessCount = options[Math.floor(Math.random() * options.length)];
+      if (!state.botMemory[asker.id]) {
+        state.botMemory[asker.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {} };
+      }
+      const askerMem = state.botMemory[asker.id];
+      if (!askerMem.failedCounts) askerMem.failedCounts = {};
+      const memKey = `${target.id}_${rank}`;
+      const triedCounts = askerMem.failedCounts[memKey] || new Set();
+      let candidates = [];
+      for (let c = 1; c <= maxPossible; c++) {
+        if (!triedCounts.has(c)) candidates.push(c);
+      }
+      if (candidates.length === 0) {
+        for (let c = 1; c <= maxPossible; c++) candidates.push(c);
+      }
+      const guessCount = candidates[Math.floor(Math.random() * candidates.length)];
 
       setLog(`🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»`);
       syncState();
 
       scheduleStep(() => {
         if (guessCount !== matching.length) {
-          recordHasInfo(asker.id, target.id, rank, guessCount);
+          Object.keys(state.botMemory).forEach(botId => {
+            const m = state.botMemory[botId];
+            m.hasRank.add(`${target.id}_${rank}`);
+            if (!m.failedCounts) m.failedCounts = {};
+            const ck = `${target.id}_${rank}`;
+            if (!m.failedCounts[ck]) m.failedCounts[ck] = new Set();
+            m.failedCounts[ck].add(guessCount);
+          });
           setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
           syncState();
           scheduleStep(() => advanceTurn(), BOT_STEP_DELAY);
@@ -989,11 +1003,11 @@ function resolveHasRankAnswer(asker, target, rank) {
             const excludedSuits = mem && mem.failedSuits[key] ? mem.failedSuits[key] : new Set();
             const mySuits = asker.hand.filter(c => c.rank === rank).map(c => c.suit);
 
-            const validSuits = SUITS.filter(s => !mySuits.includes(s) && !excludedSuits.has(s));
-            const restSuits = SUITS.filter(s => !mySuits.includes(s) && excludedSuits.has(s));
-            validSuits.sort(() => Math.random() - 0.5);
-            restSuits.sort(() => Math.random() - 0.5);
-            const possibleSuits = validSuits.concat(restSuits);
+            let possibleSuits = SUITS.filter(s => !mySuits.includes(s) && !excludedSuits.has(s));
+            if (possibleSuits.length < guessCount) {
+              possibleSuits = SUITS.filter(s => !mySuits.includes(s));
+            }
+            possibleSuits.sort(() => Math.random() - 0.5);
             const guessSuits = possibleSuits.slice(0, guessCount);
 
             setLog(`♠️ ${asker.name} называет: ${guessSuits.join(', ')}`);
@@ -1118,7 +1132,14 @@ function processHumanAction(playerId, action, payload) {
 
     if (count !== actualCount) {
       state.step = 'BOT_THINKING';
-      recordHasInfo(asker.id, target.id, rank);
+      Object.keys(state.botMemory).forEach(botId => {
+        const m = state.botMemory[botId];
+        m.hasRank.add(`${target.id}_${rank}`);
+        if (!m.failedCounts) m.failedCounts = {};
+        const ck = `${target.id}_${rank}`;
+        if (!m.failedCounts[ck]) m.failedCounts[ck] = new Set();
+        m.failedCounts[ck].add(count);
+      });
       setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
       syncState();
       scheduleStep(() => advanceTurn(), 2000);
@@ -1175,6 +1196,9 @@ function handleHostData(conn, data) {
   if (data.type === 'JOIN') {
     const playerId = conn.peer;
     connections[playerId] = conn;
+
+    // Вычищаем «призраков» без живого соединения — они не должны занимать слоты
+    state.players = state.players.filter(p => p.isBot || p.id === 'host' || connections[p.id]);
 
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
