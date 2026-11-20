@@ -147,7 +147,7 @@
 <div id="screen-menu" class="screen active">
   <div class="card-box">
     <h1>🃏 Сундучки</h1>
-    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–8 игроков</div>
+    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–5 игроков</div>
 
     <label for="player-nick">Ваш никнейм:</label>
     <input type="text" id="player-nick" placeholder="Введите имя" maxlength="16">
@@ -166,7 +166,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.2</div>
+  <div class="version-label">Версия 0.3</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -263,7 +263,7 @@ const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К'
 const BOT_DELAY = 2600;
 const BOT_STEP_DELAY = 2200;
 const MAX_PLAYERS = 5;
-const GAME_VERSION = '0.2';
+const GAME_VERSION = '0.3';
 
 const PEER_CONFIG = {
   debug: 1,
@@ -272,7 +272,18 @@ const PEER_CONFIG = {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' }
+      { urls: 'stun:stun3.l.google.com:19302' },
+      // TURN помогает телефонам за мобильным NAT/строгими роутерами
+      // установить соединение, когда прямой WebRTC-канал не проходит.
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turns:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   }
 };
@@ -519,7 +530,7 @@ function joinOnlineRoom() {
     if (!joinedConfirmed) {
       clearAllTimers();
       btnJoin.disabled = false;
-      setMpStatus('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
+      setMpStatus('❌ Нет ответа от комнаты. Проверьте код, что создатель не закрыл комнату и что у обоих телефонов стабильный интернет. Если ошибка повторяется — попробуйте другую сеть.');
       try { peer.destroy(); } catch (e) {}
     }
   }, 12000);
@@ -589,7 +600,15 @@ function joinOnlineRoom() {
     clearTimeout(timeoutTimer);
     clearAllTimers();
     btnJoin.disabled = false;
-    setMpStatus('❌ Ошибка сети (' + err.type + '). Проверьте интернет.');
+    const details = {
+      'peer-unavailable': 'комната с таким кодом сейчас недоступна',
+      'network': 'потеряно соединение с сервером сигнализации',
+      'server-error': 'ошибка сервера подключения',
+      'socket-error': 'не удалось связаться с сервером подключения',
+      'socket-closed': 'сервер подключения закрыл соединение',
+      'unavailable-id': 'не удалось создать уникальный ID игрока'
+    };
+    setMpStatus('❌ ' + (details[err.type] || ('Ошибка сети: ' + err.type)) + '. Попробуйте ещё раз.');
   });
 }
 
