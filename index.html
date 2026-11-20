@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Сундучки — Карточная игра v0.4</title>
+<title>Сундучки — Карточная игра v0.5</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -71,14 +71,14 @@
     display: flex; flex-direction: column; gap: 8px; padding: 0 6px;
   }
   .request-card {
-    display: none; align-self: center; min-width: 68px; min-height: 78px;
-    padding: 7px 10px; border-radius: 10px; border: 2px solid #ffd54f;
-    background: linear-gradient(145deg, #fff, #e9edf2); color: #1b3550;
-    box-shadow: 0 5px 16px rgba(0,0,0,0.42); text-align: center;
+    display: none; align-self: center; min-width: 54px; min-height: 62px;
+    padding: 5px 8px; border-radius: 9px; border: 1px solid rgba(215,226,218,0.34);
+    background: linear-gradient(145deg, rgba(235,241,235,0.94), rgba(196,211,199,0.92)); color: #294438;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18); text-align: center;
     flex-direction: column; align-items: center; justify-content: center;
   }
-  .request-card .request-rank { font-size: 27px; line-height: 1.1; font-weight: 800; }
-  .request-card .request-mark { font-size: 20px; line-height: 1; color: #c62828; }
+  .request-card .request-rank { font-size: 23px; line-height: 1.05; font-weight: 800; }
+  .request-card .request-mark { font-size: 16px; line-height: 1; color: #718579; }
   .log-box {
     background: rgba(11, 36, 28, 0.96); border: 1px solid #2e7d32; border-radius: 10px;
     padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.35;
@@ -138,6 +138,19 @@
     align-items: center; justify-content: center;
     padding: 20px;
   }
+
+  .collection-btn { margin-top: 9px; background: rgba(255,255,255,0.13); color:#fff; border:1px solid rgba(255,255,255,0.16); }
+  .collection-overlay { position:fixed; inset:0; z-index:1100; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.78); }
+  .collection-panel { width:100%; max-width:390px; max-height:88vh; overflow:auto; background:#173d30; border:1px solid rgba(255,255,255,.18); border-radius:16px; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
+  .collection-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:10px 0 15px; }
+  .collection-option { border:1px solid rgba(255,255,255,.2); border-radius:11px; padding:12px 8px; color:#fff; background:rgba(255,255,255,.08); text-align:center; font-weight:700; }
+  .collection-option.selected { outline:2px solid #c6d8c8; background:rgba(198,216,200,.18); }
+  .avatar-preview { width:30px; height:30px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:5px; border:1px solid rgba(255,255,255,.35); }
+  .skin-midnight { background:#172b46 !important; }
+  .skin-midnight .card-box, .skin-midnight .hand-zone { background:rgba(7,17,34,.48); }
+  .skin-midnight .center-table .action-panel { background:rgba(9,22,43,.82); border-color:rgba(157,190,230,.24); }
+  .skin-midnight .player-badge { background:rgba(9,20,39,.68); }
+  .skin-midnight .log-box { background:rgba(8,20,39,.94); border-color:#496b91; }
 </style>
 </head>
 <body>
@@ -162,9 +175,29 @@
       <button type="button" id="btn-start-solo" class="btn btn-primary">🎮 Одиночная игра (с ботами)</button>
       <button type="button" id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (с разных телефонов)</button>
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
+      <button type="button" id="btn-open-collection" class="btn collection-btn">🎨 Коллекция: аватарки и скины</button>
     </div>
   </div>
-  <div class="version-label">v0.4</div>
+  <div class="version-label">v0.5</div>
+</div>
+
+<div id="collection-overlay" class="collection-overlay" role="dialog" aria-modal="true">
+  <div class="collection-panel">
+    <h2 style="margin:0 0 8px;text-align:center;color:#dce9dc;">🎨 Коллекция</h2>
+    <div style="font-size:13px;color:#c8e6c9;margin-bottom:7px;">Аватарка игрока</div>
+    <div class="collection-grid" id="avatar-collection">
+      <button type="button" class="collection-option" data-avatar="🦊">🦊 Лис</button>
+      <button type="button" class="collection-option" data-avatar="🐼">🐼 Панда</button>
+      <button type="button" class="collection-option" data-avatar="🐸">🐸 Лягушка</button>
+      <button type="button" class="collection-option" data-avatar="🐱">🐱 Кот</button>
+    </div>
+    <div style="font-size:13px;color:#c8e6c9;margin-bottom:7px;">Оформление стола</div>
+    <div class="collection-grid" id="skin-collection">
+      <button type="button" class="collection-option" data-skin="forest">🌲 Лесной стол</button>
+      <button type="button" class="collection-option" data-skin="midnight">🌌 Ночная синь</button>
+    </div>
+    <button type="button" id="btn-close-collection" class="btn btn-secondary">Готово</button>
+  </div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -235,12 +268,12 @@
   <svg id="ask-arrow-layer" aria-hidden="true">
     <defs>
       <marker id="ask-arrow-head" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-        <path d="M0,0 L10,5 L0,10 Z" fill="#ffd54f"></path>
+        <path d="M0,0 L10,5 L0,10 Z" fill="#d7dfd5" opacity="0.32"></path>
       </marker>
     </defs>
     <path id="ask-arrow-line" d="M 0 0 Q 0 0 0 0"
-      fill="none" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round"
-      marker-end="url(#ask-arrow-head)" style="display:none; filter:drop-shadow(0 1px 3px #000);"></path>
+      fill="none" stroke="#ffd54f" stroke-width="2.4" stroke-linecap="round"
+      marker-end="url(#ask-arrow-head)" opacity="0.32" style="display:none;"></path>
   </svg>
 
   <!-- Лог игры теперь внизу, над картами -->
@@ -289,10 +322,16 @@ const PEER_CONFIG = {
 };
 
 let tg = null;
+let telegramUser = null;
+let selectedAvatar = localStorage.getItem('sunduchki-avatar') || '🦊';
+let selectedSkin = localStorage.getItem('sunduchki-skin') || 'forest';
+let telegramPhotoUrl = null;
 try {
   if (window.Telegram && window.Telegram.WebApp) {
     tg = window.Telegram.WebApp;
     tg.ready();
+    telegramUser = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
+    telegramPhotoUrl = telegramUser && telegramUser.photo_url ? telegramUser.photo_url : null;
     tg.expand();
   }
 } catch (e) {}
@@ -365,6 +404,15 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
   document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
   document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
+  document.getElementById('btn-open-collection').addEventListener('click', openCollection);
+  document.getElementById('btn-close-collection').addEventListener('click', closeCollection);
+  document.querySelectorAll('#avatar-collection [data-avatar]').forEach(btn => btn.addEventListener('click', () => {
+    selectedAvatar = btn.dataset.avatar; localStorage.setItem('sunduchki-avatar', selectedAvatar); renderCollection(); haptic('light');
+  }));
+  document.querySelectorAll('#skin-collection [data-skin]').forEach(btn => btn.addEventListener('click', () => {
+    selectedSkin = btn.dataset.skin; localStorage.setItem('sunduchki-skin', selectedSkin); applySkin(); renderCollection(); haptic('light');
+  }));
+  applySkin(); renderCollection();
 
   // Кнопки оверлея окончания игры
   document.getElementById('btn-play-again').addEventListener('click', () => {
@@ -377,6 +425,17 @@ window.addEventListener('DOMContentLoaded', () => {
     quitToMenu();
   });
 });
+
+function applySkin() {
+  document.body.classList.toggle('skin-midnight', selectedSkin === 'midnight');
+}
+function renderCollection() {
+  document.querySelectorAll('#avatar-collection [data-avatar]').forEach(b => b.classList.toggle('selected', b.dataset.avatar === selectedAvatar));
+  document.querySelectorAll('#skin-collection [data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === selectedSkin));
+}
+function openCollection() { renderCollection(); document.getElementById('collection-overlay').style.display = 'flex'; }
+function closeCollection() { document.getElementById('collection-overlay').style.display = 'none'; }
+function getMyAvatarData() { return { avatar: selectedAvatar, avatarUrl: telegramPhotoUrl || null }; }
 
 function getNick() {
   const val = document.getElementById('player-nick').value.trim();
@@ -414,7 +473,7 @@ function startSoloGame() {
   state.gameStarted = true;
 
   const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
-  state.players = [{ id: 'p0', name: state.myNick, isBot: false, hand: [], chests: [] }];
+  state.players = [{ id: 'p0', name: state.myNick, isBot: false, ...getMyAvatarData(), hand: [], chests: [] }];
   for (let i = 1; i < totalPlayers; i++) {
     state.players.push({ id: 'p' + i, name: `Бот ${i}`, isBot: true, hand: [], chests: [] });
   }
@@ -434,7 +493,7 @@ function createOnlineRoom() {
   state.gameStarted = false;
   roomCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-  state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
+  state.players = [{ id: 'host', name: state.myNick, isBot: false, ...getMyAvatarData(), hand: [], chests: [] }];
   connections = {};
 
   if (peer) { try { peer.destroy(); } catch (e) {} }
@@ -540,7 +599,7 @@ function joinOnlineRoom() {
 
     const sendJoinRequest = () => {
       if (hostConn && hostConn.open && !joinedConfirmed) {
-        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
+        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick, ...getMyAvatarData() });
       }
     };
 
@@ -620,7 +679,7 @@ function addBotToLobby() {
 
 function broadcastLobby() {
   renderLobby();
-  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
+  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot, avatar: p.avatar || '👤', avatarUrl: p.avatarUrl || null }));
   Object.values(connections).forEach(c => {
     if (c && c.open) {
       try { c.send({ type: 'LOBBY', players: list }); } catch (e) {}
@@ -1126,6 +1185,8 @@ function handleHostData(conn, data) {
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
       if (data.nick) existing.name = data.nick;
+      if (data.avatar) existing.avatar = data.avatar;
+      if (data.avatarUrl) existing.avatarUrl = data.avatarUrl;
       broadcastLobby();
       return;
     }
@@ -1139,6 +1200,8 @@ function handleHostData(conn, data) {
       id: playerId,
       name: data.nick || 'Гость',
       isBot: false,
+      avatar: data.avatar || '👤',
+      avatarUrl: data.avatarUrl || null,
       hand: [],
       chests: []
     });
@@ -1189,6 +1252,8 @@ function syncState() {
         id: p.id,
         name: p.name,
         isBot: p.isBot,
+        avatar: p.avatar || '👤',
+        avatarUrl: p.avatarUrl || null,
         chests: p.chests,
         handCount: p.hand.length,
         hand: p.id === peerId ? p.hand : []
@@ -1247,7 +1312,7 @@ function renderGame() {
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
     div.innerHTML = `
-      <div class="p-name"><span class="p-icon">${p.isBot ? '🤖' : '👤'}</span> ${p.name}</div>
+      <div class="p-name">${p.avatarUrl ? `<img class="avatar-preview" src="${p.avatarUrl}" alt="">` : `<span class="p-icon">${p.isBot ? '🤖' : (p.avatar || '👤')}</span>`} ${p.name}</div>
       <div class="p-stats">
         <span>🃏 <b>${count}</b></span>
         <span>📦 <b>${p.chests.length}</b></span>
@@ -1346,7 +1411,7 @@ function renderGame() {
     turnPanel.style.display = 'none';
   }
 
-  document.getElementById('my-name-label').innerText = `👤 ${me.name}`;
+  document.getElementById('my-name-label').innerHTML = `${me.avatarUrl ? `<img class="avatar-preview" src="${me.avatarUrl}" alt="">` : (me.avatar || '👤')} ${me.name}`;
   document.getElementById('my-chests').innerText = me.chests.length;
   document.getElementById('my-cards-count').innerText = me.hand.length;
 
@@ -1424,13 +1489,14 @@ function renderAskArrow() {
   const dy = y2 - y1;
   const length = Math.max(1, Math.hypot(dx, dy));
   // Смещаем контрольную точку перпендикулярно направлению — получается мягкая дуга.
-  const bend = Math.min(88, Math.max(42, length * 0.16));
+  const bend = Math.min(72, Math.max(34, length * 0.13));
   const cx = (x1 + x2) / 2 - (dy / length) * bend;
   const cy = (y1 + y2) / 2 + (dx / length) * bend;
   svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
   svg.setAttribute('width', window.innerWidth);
   svg.setAttribute('height', window.innerHeight);
   line.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
+  line.setAttribute('stroke', '#d7dfd5');
   line.style.display = 'block';
 }
 </script>
