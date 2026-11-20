@@ -55,32 +55,22 @@
   }
   #opponents-layer {
     position: absolute; inset: 0; z-index: 10;
-    pointer-events: none;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, auto); align-content: space-between;
+    justify-items: stretch; gap: 8px; pointer-events: none;
   }
   .player-badge {
-    position: absolute; width: clamp(112px, 29%, 142px);
+    position: relative; inset: auto; transform: none; width: auto;
     min-width: 0; padding: 8px 7px; pointer-events: auto;
-    transform: none;
+    min-height: 58px;
   }
-  .player-badge .p-name { font-size: 14px; }
-  .player-badge .p-stats { font-size: 12px; }
-  .player-badge .p-avatar { font-size: 23px; vertical-align: middle; }
-  #opponents-layer.opponents-1 .player-badge { left: 50%; top: 2%; transform: translateX(-50%); }
-  #opponents-layer.opponents-2 .player-badge:nth-child(1) { left: 2%; top: 3%; }
-  #opponents-layer.opponents-2 .player-badge:nth-child(2) { right: 2%; top: 3%; }
-  #opponents-layer.opponents-3 .player-badge:nth-child(1) { left: 2%; top: 3%; }
-  #opponents-layer.opponents-3 .player-badge:nth-child(2) { right: 2%; top: 3%; }
-  #opponents-layer.opponents-3 .player-badge:nth-child(3) { left: 50%; bottom: 2%; transform: translateX(-50%); }
-  #opponents-layer.opponents-4 .player-badge:nth-child(1) { left: 2%; top: 3%; }
-  #opponents-layer.opponents-4 .player-badge:nth-child(2) { right: 2%; top: 3%; }
-  #opponents-layer.opponents-4 .player-badge:nth-child(3) { left: 2%; bottom: 2%; }
-  #opponents-layer.opponents-4 .player-badge:nth-child(4) { right: 2%; bottom: 2%; }
   .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.2); }
 
   .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
-  .p-name { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .p-stats { display: flex; justify-content: space-between; font-size: 11px; color: #a5d6a7; margin-top: 3px; }
+  .p-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-stats { display: flex; justify-content: space-between; font-size: 12px; color: #a5d6a7; margin-top: 5px; }
+  .p-icon { font-size: 19px; vertical-align: -1px; }
 
   .pos-top-center { top: 0; left: 50%; transform: translateX(-50%); }
   .pos-top-left { top: 0; left: 0; }
@@ -94,22 +84,22 @@
     width: 100%; max-width: 340px; z-index: 15;
     display: flex; flex-direction: column; gap: 8px; padding: 0 6px;
   }
-  .asked-card {
-    align-self: center; width: 66px; height: 92px; border-radius: 9px;
-    background: #fff; color: #17231e; border: 3px solid #ffd54f;
-    box-shadow: 0 5px 18px rgba(0,0,0,.55); display: none;
-    align-items: center; justify-content: center; flex-direction: column;
-    font-weight: 900; font-size: 25px; line-height: 1.05; z-index: 30;
-    transform: rotate(-3deg);
-  }
-  .asked-card small { font-size: 23px; color: #d32f2f; }
-  #table-arrow { position:absolute; inset:0; width:100%; height:100%; z-index:14; pointer-events:none; overflow:visible; }
   .log-box {
     background: rgba(11, 36, 28, 0.94); border: 1px solid #2e7d32; border-radius: 10px;
     padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.4;
-    min-height: 58px; display: flex; align-items: center; justify-content: center;
+    min-height: 62px; display: flex; align-items: center; justify-content: center;
     margin: 0 0 6px 0;
   }
+  .ask-card {
+    display: none; align-self: center; width: 66px; height: 92px;
+    background: #fff; color: #17251f; border: 3px solid #ffd54f;
+    border-radius: 9px; box-shadow: 0 5px 16px rgba(0,0,0,.45);
+    align-items: center; justify-content: center; flex-direction: column;
+    font-weight: 800; z-index: 16; transform: rotate(-5deg);
+  }
+  .ask-card-rank { font-size: 25px; line-height: 1; }
+  .ask-card-question { font-size: 25px; color: #2e7d32; line-height: 1; margin-top: 7px; }
+  #ask-arrow-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 12; pointer-events: none; overflow: visible; }
   .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
   .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -188,7 +178,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.4</div>
+  <div class="version-label">Версия 0.3</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -236,10 +226,22 @@
 
   <div class="arena" id="arena-container">
     <div id="opponents-layer"></div>
-    <svg id="table-arrow" aria-hidden="true"></svg>
+    <svg id="ask-arrow-layer" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <marker id="ask-arrow-head" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#ffd54f"></path>
+        </marker>
+      </defs>
+      <line id="ask-arrow-line" x1="0" y1="0" x2="0" y2="0"
+        stroke="#ffd54f" stroke-width="1.4" stroke-linecap="round"
+        stroke-dasharray="2.5 1.5" marker-end="url(#ask-arrow-head)" style="display:none;" />
+    </svg>
 
     <div class="center-table">
-      <div id="asked-card" class="asked-card"><span id="asked-rank">A</span><small>?</small></div>
+      <div id="ask-card" class="ask-card" aria-label="Запрошенная карта">
+        <div id="ask-card-rank" class="ask-card-rank">?</div>
+        <div class="ask-card-question">?</div>
+      </div>
       <div id="answer-modal" class="answer-banner" style="display:none;">
         <div id="answer-question" class="answer-text">У вас спрашивают карту...</div>
         <div class="answer-btns">
@@ -1260,7 +1262,6 @@ function renderGame() {
 
   const oppLayer = document.getElementById('opponents-layer');
   oppLayer.innerHTML = '';
-  oppLayer.className = `opponents-${Math.max(1, Math.min(4, state.players.length - 1))}`;
 
   const myIdx = state.players.findIndex(p => p.id === state.myId);
   const opponents = [];
@@ -1278,7 +1279,7 @@ function renderGame() {
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
     div.innerHTML = `
-      <div class="p-name"><span class="p-avatar">${p.isBot ? '🤖' : '👤'}</span> ${p.name}</div>
+      <div class="p-name"><span class="p-icon">${p.isBot ? '🤖' : '👤'}</span> ${p.name}</div>
       <div class="p-stats">
         <span>🃏 <b>${count}</b></span>
         <span>📦 <b>${p.chests.length}</b></span>
@@ -1290,27 +1291,41 @@ function renderGame() {
     oppLayer.appendChild(div);
   });
 
-  // Показываем карту-запрос в центре стола и стрелку между участниками.
-  const askedCard = document.getElementById('asked-card');
-  const arrowSvg = document.getElementById('table-arrow');
-  const activeAsk = state.pendingAsk && state.pendingAsk.rank ? state.pendingAsk : null;
-  askedCard.style.display = activeAsk ? 'flex' : 'none';
-  if (activeAsk) document.getElementById('asked-rank').innerText = activeAsk.rank;
-  arrowSvg.innerHTML = '';
-  if (activeAsk) {
-    const arena = document.getElementById('arena-container');
-    const arenaRect = arena.getBoundingClientRect();
-    const getPoint = (id, isMe) => {
-      const el = document.getElementById(isMe ? 'my-hand-zone' : 'badge-' + id);
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2 - arenaRect.left, y: r.top + r.height / 2 - arenaRect.top };
-    };
-    const from = getPoint(activeAsk.fromId, activeAsk.fromId === state.myId);
-    const to = getPoint(activeAsk.toId, activeAsk.toId === state.myId);
-    if (from && to) {
-      arrowSvg.setAttribute('viewBox', `0 0 ${arena.clientWidth} ${arena.clientHeight}`);
-      arrowSvg.innerHTML = `<defs><marker id="ask-arrow-head" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#ffd54f"/></marker></defs><line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ask-arrow-head)" stroke-dasharray="7 5"/>`;
+  // Карта запроса в центре стола: номинал и вопрос вместо масти.
+  const askCard = document.getElementById('ask-card');
+  const askCardRank = document.getElementById('ask-card-rank');
+  const askArrow = document.getElementById('ask-arrow-line');
+  const askArrowLayer = document.getElementById('ask-arrow-layer');
+  const ask = state.pendingAsk;
+  if (ask && ask.rank) {
+    askCard.style.display = 'flex';
+    askCardRank.innerText = ask.rank;
+  } else {
+    askCard.style.display = 'none';
+  }
+
+  // Стрелка от спрашивающего к выбранному игроку.
+  askArrow.style.display = 'none';
+  if (ask && ask.fromId && ask.toId) {
+    const arenaRect = document.getElementById('arena-container').getBoundingClientRect();
+    const fromEl = ask.fromId === state.myId
+      ? document.getElementById('my-hand-zone')
+      : document.getElementById('badge-' + ask.fromId);
+    const toEl = ask.toId === state.myId
+      ? document.getElementById('my-hand-zone')
+      : document.getElementById('badge-' + ask.toId);
+    if (fromEl && toEl && arenaRect.width && arenaRect.height) {
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+      const x1 = ((fromRect.left + fromRect.width / 2 - arenaRect.left) / arenaRect.width) * 100;
+      const y1 = ((fromRect.top + fromRect.height / 2 - arenaRect.top) / arenaRect.height) * 100;
+      const x2 = ((toRect.left + toRect.width / 2 - arenaRect.left) / arenaRect.width) * 100;
+      const y2 = ((toRect.top + toRect.height / 2 - arenaRect.top) / arenaRect.height) * 100;
+      askArrow.setAttribute('x1', x1);
+      askArrow.setAttribute('y1', y1);
+      askArrow.setAttribute('x2', x2);
+      askArrow.setAttribute('y2', y2);
+      askArrow.style.display = 'block';
     }
   }
 
