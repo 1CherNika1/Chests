@@ -154,7 +154,7 @@
 <div id="screen-mp-menu" class="screen">
   <div class="card-box">
     <h1>🌐 Онлайн-игра</h1>
-    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек)</div>
+    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек) • сборка v4</div>
 
     <button type="button" id="btn-create-room" class="btn btn-primary" style="margin-bottom: 14px;">➕ Создать комнату</button>
 
@@ -251,15 +251,11 @@ const PEER_CONFIG = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   }
 };
@@ -302,6 +298,7 @@ let roomCode = '';
 let activeTimer = null;
 let joinRetryTimer = null;
 let answerWatchdog = null;
+let joinAttempts = 0;
 
 function scheduleStep(fn, delay) {
   if (activeTimer) clearTimeout(activeTimer);
@@ -340,7 +337,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
   document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
   document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
-  document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
+  document.getElementById('btn-join-room').addEventListener('click', () => { joinAttempts = 0; joinOnlineRoom(); });
   document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
   document.getElementById('btn-add-bot').addEventListener('click', addBotToLobby);
   document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
@@ -458,7 +455,7 @@ function createOnlineRoom() {
       } else {
         leftPlayer.isBot = true;
         leftPlayer.name = leftPlayer.name + ' (Бот)';
-        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
+        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {}, lastQuestion: null };
         setLog(`⚠️ ${leftPlayer.name} отключился. Его заменил бот.`);
         if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
           startTurn();
@@ -506,31 +503,12 @@ function joinOnlineRoom() {
   peer = new Peer(PEER_CONFIG);
 
   let joinedConfirmed = false;
-
-  const confirmJoin = () => {
-    if (joinedConfirmed) return;
-    joinedConfirmed = true;
-    clearTimeout(joinTimeout);
-    clearAllTimers();
-    btnJoin.disabled = false;
-    setMpStatus('');
-    document.getElementById('lobby-code').innerText = rawCode;
-    document.getElementById('host-controls').style.display = 'none';
-    document.getElementById('guest-wait').style.display = 'block';
-    showScreen('screen-lobby');
-  };
-
-  const failJoin = (text) => {
-    clearTimeout(joinTimeout);
-    clearAllTimers();
-    btnJoin.disabled = false;
-    setMpStatus(text);
-    try { peer.destroy(); } catch (e) {}
-  };
-
-  const joinTimeout = setTimeout(() => {
+  const timeoutTimer = setTimeout(() => {
     if (!joinedConfirmed) {
-      failJoin('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
+      clearAllTimers();
+      btnJoin.disabled = false;
+      setMpStatus('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
+      try { peer.destroy(); } catch (e) {}
     }
   }, 20000);
 
@@ -540,7 +518,7 @@ function joinOnlineRoom() {
 
     const sendJoinRequest = () => {
       if (hostConn && hostConn.open && !joinedConfirmed) {
-        try { hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick }); } catch (e) {}
+        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
       }
     };
 
@@ -553,48 +531,78 @@ function joinOnlineRoom() {
         } else {
           sendJoinRequest();
         }
-      }, 700);
+      }, 800);
     });
 
     hostConn.on('data', data => {
-      if (!data || !data.type) return;
+      if (data.type === 'JOINED') {
+        joinedConfirmed = true;
+        clearTimeout(timeoutTimer);
+        clearAllTimers();
+        btnJoin.disabled = false;
+        setMpStatus('');
+      }
       if (data.type === 'ROOM_FULL') {
-        failJoin('❌ В комнате уже максимум (5 игроков) или игра идёт.');
+        clearTimeout(timeoutTimer);
+        clearAllTimers();
+        btnJoin.disabled = false;
+        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
+        try { peer.destroy(); } catch (e) {}
         return;
       }
-      if (data.type === 'JOINED' && data.ok) {
-        confirmJoin();
-        return;
-      }
-      if (data.type === 'LOBBY' && Array.isArray(data.players)) {
-        const meInList = data.players.some(p => p.id === state.myId);
-        if (meInList) confirmJoin();
+      if (data.type === 'LOBBY' && !joinedConfirmed) {
+        const meInList = (data.players || []).some(p => p.id === state.myId);
+        if (!meInList) return;
+        joinedConfirmed = true;
+        clearTimeout(timeoutTimer);
+        clearAllTimers();
+        btnJoin.disabled = false;
+        setMpStatus('');
+        document.getElementById('lobby-code').innerText = rawCode;
+        document.getElementById('host-controls').style.display = 'none';
+        document.getElementById('guest-wait').style.display = 'block';
+        showScreen('screen-lobby');
       }
       handleGuestData(data);
     });
 
     hostConn.on('close', () => {
+      clearTimeout(timeoutTimer);
+      clearAllTimers();
       if (!joinedConfirmed) {
-        failJoin('❌ Соединение оборвалось до входа в комнату. Попробуйте ещё раз.');
-        return;
+        joinAttempts++;
+        if (joinAttempts < 3) {
+          setMpStatus('⚠️ Связь с хостом оборвалась, пробуем снова (' + joinAttempts + '/3)...');
+          setTimeout(() => {
+            try { peer.destroy(); } catch (e) {}
+            joinOnlineRoom();
+          }, 1500);
+        } else {
+          btnJoin.disabled = false;
+          setMpStatus('❌ Не удалось подключиться за 3 попытки. Проверьте код комнаты и интернет.');
+        }
+      } else {
+        alert('Создатель комнаты закрыл игру');
+        showScreen('screen-menu');
       }
-      alert('Создатель комнаты закрыл игру');
-      showScreen('screen-menu');
     });
 
     hostConn.on('error', () => {
-      if (!joinedConfirmed) {
-        failJoin('❌ Ошибка соединения с комнатой. Попробуйте ещё раз.');
-      }
+      clearTimeout(timeoutTimer);
+      clearAllTimers();
+      btnJoin.disabled = false;
+      setMpStatus('❌ Ошибка соединения с комнатой.');
     });
   });
 
   peer.on('error', err => {
-    if (!joinedConfirmed) {
-      failJoin('❌ Ошибка сети (' + err.type + '). Проверьте интернет.');
-    }
+    clearTimeout(timeoutTimer);
+    clearAllTimers();
+    btnJoin.disabled = false;
+    setMpStatus('❌ Ошибка сети (' + err.type + '). Проверьте интернет.');
   });
 }
+
 function addBotToLobby() {
   if (state.players.length >= 5) return;
   haptic('light');
@@ -691,7 +699,9 @@ function initMatch() {
       state.botMemory[p.id] = {
         noRank: new Set(),
         hasRank: new Set(),
-        failedSuits: {}
+        failedSuits: {},
+        failedCounts: {},
+        lastQuestion: null
       };
     }
   });
@@ -742,7 +752,6 @@ function checkGameOver() {
 }
 
 function advanceTurn() {
-  if (answerWatchdog) { clearTimeout(answerWatchdog); answerWatchdog = null; }
   if (checkGameOver()) return;
   for (let i = 1; i <= state.players.length; i++) {
     const nextIdx = (state.turnIndex + i) % state.players.length;
@@ -816,35 +825,6 @@ function animateCardTransfer(fromId, toId, cardsToFly, showFace) {
   });
 }
 
-function armAnswerWatchdog(targetId) {
-  if (answerWatchdog) clearTimeout(answerWatchdog);
-  answerWatchdog = setTimeout(() => {
-    answerWatchdog = null;
-    if (state.step !== 'WAIT_ANSWER' || !state.pendingAsk || state.pendingAsk.toId !== targetId) return;
-    const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
-    const target = state.players.find(p => p.id === targetId);
-    const rank = state.pendingAsk.rank;
-    if (!asker || !asker.isBot || !target) return;
-    setLog(`⏱️ ${target.name} не ответил(а) вовремя — ответ фиксируется автоматически.`);
-    state.pendingAsk = null;
-    if (!target.hand.some(c => c.rank === rank)) {
-      recordTableEvent(asker.id, target.id, rank, false, null);
-      syncState();
-      scheduleStep(() => advanceTurn(), 1500);
-    } else {
-      const matching = target.hand.filter(c => c.rank === rank);
-      const showFace = asker.id === state.myId || target.id === state.myId;
-      animateCardTransfer(target.id, asker.id, matching, showFace);
-      target.hand = target.hand.filter(c => c.rank !== rank);
-      asker.hand.push(...matching);
-      recordTableEvent(asker.id, target.id, rank, true, null);
-      checkChests(asker, true);
-      syncState();
-      scheduleStep(() => startTurn(), 1500);
-    }
-  }, 60000);
-}
-
 function recordTableEvent(fromId, toId, rank, gotCards, guessedSuits) {
   Object.keys(state.botMemory).forEach(botId => {
     const mem = state.botMemory[botId];
@@ -898,8 +878,7 @@ function executeBotTurn(bot) {
 
   if (!chosenTarget && myRanksSorted.length > 0) {
     for (let r of myRanksSorted) {
-      const lastTierKey = mem.lastAsk ? `${mem.lastAsk.toId}_${r}` : null;
-      const validTargets = targets.filter(t => !mem.noRank.has(`${t.id}_${r}`) && `${t.id}_${r}` !== lastTierKey);
+      const validTargets = targets.filter(t => !mem.noRank.has(`${t.id}_${r}`));
       if (validTargets.length > 0) {
         chosenRank = r;
         chosenTarget = validTargets[Math.floor(Math.random() * validTargets.length)];
@@ -908,24 +887,15 @@ function executeBotTurn(bot) {
     }
   }
 
-  const lastKey = mem.lastAsk ? `${mem.lastAsk.toId}_${mem.lastAsk.rank}` : null;
   if (!chosenTarget) {
+    const noRepeat = q => q !== (mem && mem.lastQuestion);
     const candidates = [];
-    for (let r of myRanksSorted) {
-      for (let t of targets) {
-        const key = `${t.id}_${r}`;
-        if (key === lastKey) continue;
-        let score = 0;
-        if (mem.noRank.has(key)) score -= 2;
-        if (mem.hasRank.has(key)) score += 1;
-        candidates.push({ t: t, r: r, score: score });
-      }
-    }
+    targets.forEach(t => availableRanks.forEach(r => {
+      const q = `${t.id}_${r}`;
+      if (!mem.noRank.has(q) && noRepeat(q)) candidates.push({ t, r });
+    }));
     if (candidates.length > 0) {
-      candidates.sort((a, b) => b.score - a.score);
-      const bestScore = candidates[0].score;
-      const best = candidates.filter(c => c.score === bestScore);
-      const pick = best[Math.floor(Math.random() * best.length)];
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
       chosenTarget = pick.t;
       chosenRank = pick.r;
     } else {
@@ -933,15 +903,15 @@ function executeBotTurn(bot) {
       chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
     }
   }
-  mem.lastAsk = { toId: chosenTarget.id, rank: chosenRank };
 
+  if (mem) mem.lastQuestion = `${chosenTarget.id}_${chosenRank}`;
   state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
   setLog(`🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`);
 
   if (!chosenTarget.isBot) {
     state.step = 'WAIT_ANSWER';
+    armAnswerWatchdog(bot, chosenTarget, chosenRank);
     syncState();
-    armAnswerWatchdog(chosenTarget.id);
   } else {
     syncState();
     scheduleStep(() => resolveHasRankAnswer(bot, chosenTarget, chosenRank), BOT_STEP_DELAY);
@@ -962,29 +932,25 @@ function resolveHasRankAnswer(asker, target, rank) {
     scheduleStep(() => {
       const mySame = asker.hand.filter(c => c.rank === rank).length;
       const maxPossible = Math.min(3, 4 - mySame);
-      const memC = state.botMemory[asker.id];
-      const keyC = `${target.id}_${rank}`;
-      const wrongCounts = (memC && memC.wrongCounts && memC.wrongCounts[keyC]) ? memC.wrongCounts[keyC] : new Set();
-      const countOptions = [];
-      for (let n = 1; n <= maxPossible; n++) if (!wrongCounts.has(n)) countOptions.push(n);
-      const guessCount = countOptions.length
-        ? countOptions[Math.floor(Math.random() * countOptions.length)]
-        : (Math.floor(Math.random() * maxPossible) + 1);
+      const cKey = `${target.id}_${rank}`;
+      const failedCnt = (state.botMemory[asker.id] && state.botMemory[asker.id].failedCounts && state.botMemory[asker.id].failedCounts[cKey]) ? [...state.botMemory[asker.id].failedCounts[cKey]] : [];
+      const allowedCounts = [];
+      for (let c = 1; c <= maxPossible; c++) if (!failedCnt.includes(c)) allowedCounts.push(c);
+      const guessCount = allowedCounts.length > 0 ? allowedCounts[Math.floor(Math.random() * allowedCounts.length)] : (Math.floor(Math.random() * maxPossible) + 1);
 
       setLog(`🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»`);
       syncState();
 
       scheduleStep(() => {
         if (guessCount !== matching.length) {
-          setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
-          const memA = state.botMemory[asker.id];
-          if (memA) {
-            const keyA = `${target.id}_${rank}`;
-            if (!memA.wrongCounts) memA.wrongCounts = {};
-            if (!memA.wrongCounts[keyA]) memA.wrongCounts[keyA] = new Set();
-            memA.wrongCounts[keyA].add(guessCount);
-            memA.hasRank.add(keyA);
+          const memNow = state.botMemory[asker.id];
+          if (memNow) {
+            const cKey = `${target.id}_${rank}`;
+            if (!memNow.failedCounts) memNow.failedCounts = {};
+            if (!memNow.failedCounts[cKey]) memNow.failedCounts[cKey] = new Set();
+            memNow.failedCounts[cKey].add(guessCount);
           }
+          setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
           syncState();
           scheduleStep(() => advanceTurn(), BOT_STEP_DELAY);
         } else {
@@ -1038,6 +1004,23 @@ function resolveHasRankAnswer(asker, target, rank) {
   }
 }
 
+function armAnswerWatchdog(asker, target, rank) {
+  if (answerWatchdog) clearTimeout(answerWatchdog);
+  const askToken = state.pendingAsk;
+  answerWatchdog = setTimeout(() => {
+    answerWatchdog = null;
+    if (state.step !== 'WAIT_ANSWER' || !state.pendingAsk || state.pendingAsk !== askToken) return;
+    if (target.hand.some(c => c.rank === rank)) {
+      setLog(`⏱️ ${target.name} молчит 60 сек — ответ зафиксирован автоматически: «Да». Продолжаем...`);
+      resolveHasRankAnswer(asker, target, rank);
+    } else {
+      setLog(`⏱️ ${target.name} молчит 60 сек — ответ зафиксирован автоматически: «Нет». Ход переходит дальше.`);
+      recordTableEvent(asker.id, target.id, rank, false, null);
+      advanceTurn();
+    }
+  }, 60000);
+}
+
 function handleHumanChoice(action, payload) {
   if (state.mode === 'guest') {
     if (hostConn && hostConn.open) {
@@ -1053,6 +1036,7 @@ function processHumanAction(playerId, action, payload) {
   const currentPlayer = state.players[state.turnIndex];
   const player = state.players.find(p => p.id === playerId);
   if (!player || !currentPlayer) return;
+  if (answerWatchdog) { clearTimeout(answerWatchdog); answerWatchdog = null; }
 
   if (action === 'ANSWER_YES_NO') {
     if (state.step !== 'WAIT_ANSWER' || !state.pendingAsk || state.pendingAsk.toId !== playerId) return;
@@ -1096,7 +1080,6 @@ function processHumanAction(playerId, action, payload) {
     }
   }
   else if (action === 'ANSWER_YES_NO' && state.step === 'WAIT_ANSWER') {
-    if (answerWatchdog) { clearTimeout(answerWatchdog); answerWatchdog = null; }
     const asker = state.players.find(p => p.id === state.pendingAsk.fromId);
     const target = state.players.find(p => p.id === state.pendingAsk.toId);
     const rank = state.pendingAsk.rank;
@@ -1127,6 +1110,15 @@ function processHumanAction(playerId, action, payload) {
 
     if (count !== actualCount) {
       state.step = 'BOT_THINKING';
+      if (asker.isBot) {
+        const memNow = state.botMemory[asker.id];
+        if (memNow) {
+          const cKey = `${target.id}_${rank}`;
+          if (!memNow.failedCounts) memNow.failedCounts = {};
+          if (!memNow.failedCounts[cKey]) memNow.failedCounts[cKey] = new Set();
+          memNow.failedCounts[cKey].add(count);
+        }
+      }
       setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
       syncState();
       scheduleStep(() => advanceTurn(), 2000);
@@ -1184,25 +1176,21 @@ function handleHostData(conn, data) {
     const playerId = conn.peer;
     connections[playerId] = conn;
 
-    // Чистим «призраков»: гости, чьё соединение уже мертво, а close не сработал
-    state.players = state.players.filter(p => {
-      if (p.isBot || p.id === 'host') return true;
-      if (p.id === playerId) return true;
-      const c = connections[p.id];
-      return !!(c && c.open);
-    });
+    const beforeCount = state.players.length;
+    state.players = state.players.filter(p => p.isBot || p.id === 'host' || (connections[p.id] && connections[p.id].open));
+    if (state.players.length !== beforeCount) {
+      broadcastLobby();
+    }
 
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
       if (data.nick) existing.name = data.nick;
-      try { conn.send({ type: 'JOINED', ok: true }); } catch (e) {}
       broadcastLobby();
       return;
     }
 
     if (state.gameStarted || state.players.length >= 5) {
       try { conn.send({ type: 'ROOM_FULL' }); } catch (e) {}
-      delete connections[playerId];
       return;
     }
 
@@ -1213,7 +1201,7 @@ function handleHostData(conn, data) {
       hand: [],
       chests: []
     });
-    try { conn.send({ type: 'JOINED', ok: true }); } catch (e) {}
+    try { conn.send({ type: 'JOINED' }); } catch (e) {}
     broadcastLobby();
   } else if (data.type === 'ACTION') {
     const senderId = conn.peer;
@@ -1457,6 +1445,36 @@ function renderGame() {
     gameOverOverlay.style.display = 'none';
   }
 }
+</script>
+<script>
+// АВТООБНОВЛЕНИЕ: раз в минуту сверяет файл с версией на сервере.
+// При каждой новой сборке меняйте APP_BUILD (например, 'v5').
+const APP_BUILD = 'v4';
+(function () {
+  function checkUpdate() {
+    if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+    const base = location.href.split('#')[0];
+    const url = base + (base.includes('?') ? '&' : '?') + '_t=' + Date.now();
+    fetch(url, { cache: 'no-store' })
+      .then(r => r.ok ? r.text() : Promise.reject())
+      .then(txt => { if (!txt.includes(APP_BUILD)) showUpdateBanner(); })
+      .catch(() => {});
+  }
+  function showUpdateBanner() {
+    if (document.getElementById('update-banner')) return;
+    const b = document.createElement('button');
+    b.id = 'update-banner';
+    b.innerText = '🔄 Доступна новая версия — обновить';
+    b.style.cssText = 'position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:9999;background:#ffd54f;color:#111;border:none;border-radius:10px;padding:10px 18px;font-weight:bold;box-shadow:0 3px 0 #b8860b;';
+    b.onclick = () => location.reload();
+    document.body.appendChild(b);
+    if (state.step === 'IDLE' || state.step === 'GAME_OVER') {
+      setTimeout(() => location.reload(), 1500);
+    }
+  }
+  setTimeout(checkUpdate, 5000);
+  setInterval(checkUpdate, 60000);
+})();
 </script>
 </body>
 </html>
