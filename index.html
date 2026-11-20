@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Сундучки — Карточная игра v0.5</title>
+<title>Сундучки — Карточная игра v0.4</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -72,13 +72,13 @@
   }
   .request-card {
     display: none; align-self: center; min-width: 54px; min-height: 62px;
-    padding: 5px 8px; border-radius: 9px; border: 1px solid rgba(215,226,218,0.34);
-    background: linear-gradient(145deg, rgba(235,241,235,0.94), rgba(196,211,199,0.92)); color: #294438;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18); text-align: center;
+    padding: 5px 8px; border-radius: 9px; border: 1px solid rgba(220,224,215,0.42);
+    background: linear-gradient(145deg, rgba(235,239,232,0.88), rgba(193,204,193,0.88));
+    color: #26382f; box-shadow: 0 2px 8px rgba(0,0,0,0.2); text-align: center;
     flex-direction: column; align-items: center; justify-content: center;
   }
-  .request-card .request-rank { font-size: 23px; line-height: 1.05; font-weight: 800; }
-  .request-card .request-mark { font-size: 16px; line-height: 1; color: #718579; }
+  .request-card .request-rank { font-size: 22px; line-height: 1.05; font-weight: 750; }
+  .request-card .request-mark { font-size: 15px; line-height: 1; color: #68766d; }
   .log-box {
     background: rgba(11, 36, 28, 0.96); border: 1px solid #2e7d32; border-radius: 10px;
     padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.35;
@@ -86,6 +86,21 @@
     margin: 0 0 6px 0;
   }
   #ask-arrow-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 14; pointer-events: none; overflow: visible; }
+  #ask-arrow-line { stroke: rgba(255,213,79,0.34); stroke-width: 2.6; filter: none !important; }
+  #ask-arrow-head path { fill: rgba(255,213,79,0.34); }
+  .collection-section { margin: 12px 0; padding: 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(0,0,0,0.16); }
+  .collection-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+  .collection-option { padding: 10px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.2); background: #1b4d3e; color: white; font-size: 13px; font-weight: 650; }
+  .collection-option.selected { border-color: #ffd54f; background: #315f4d; box-shadow: inset 0 0 0 1px rgba(255,213,79,0.35); }
+  .player-avatar { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.35); }
+  body.skin-midnight { background: #17243b; }
+  body.skin-midnight .hand-zone { background: rgba(12,20,38,0.58); }
+  body.skin-midnight .log-box { background: rgba(12,20,38,0.96); border-color: #526b91; }
+  body.skin-midnight .player-badge { background: rgba(10,18,34,0.72); }
+  body.card-skin-gold .card { background: #f5e7bd; color: #493719; border: 1px solid #c49a45; }
+  body.card-skin-gold .card.red { color: #a52d2d; }
+  body.card-skin-gold .flying-card:not(.back) { background: #f5e7bd; color: #493719; border: 1px solid #c49a45; }
+  body.card-skin-gold .flying-card.red { color: #a52d2d; }
   .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
   .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -138,19 +153,6 @@
     align-items: center; justify-content: center;
     padding: 20px;
   }
-
-  .collection-btn { margin-top: 9px; background: rgba(255,255,255,0.13); color:#fff; border:1px solid rgba(255,255,255,0.16); }
-  .collection-overlay { position:fixed; inset:0; z-index:1100; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.78); }
-  .collection-panel { width:100%; max-width:390px; max-height:88vh; overflow:auto; background:#173d30; border:1px solid rgba(255,255,255,.18); border-radius:16px; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
-  .collection-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:10px 0 15px; }
-  .collection-option { border:1px solid rgba(255,255,255,.2); border-radius:11px; padding:12px 8px; color:#fff; background:rgba(255,255,255,.08); text-align:center; font-weight:700; }
-  .collection-option.selected { outline:2px solid #c6d8c8; background:rgba(198,216,200,.18); }
-  .avatar-preview { width:30px; height:30px; border-radius:50%; object-fit:cover; vertical-align:middle; margin-right:5px; border:1px solid rgba(255,255,255,.35); }
-  .skin-midnight { background:#172b46 !important; }
-  .skin-midnight .card-box, .skin-midnight .hand-zone { background:rgba(7,17,34,.48); }
-  .skin-midnight .center-table .action-panel { background:rgba(9,22,43,.82); border-color:rgba(157,190,230,.24); }
-  .skin-midnight .player-badge { background:rgba(9,20,39,.68); }
-  .skin-midnight .log-box { background:rgba(8,20,39,.94); border-color:#496b91; }
 </style>
 </head>
 <body>
@@ -175,29 +177,10 @@
       <button type="button" id="btn-start-solo" class="btn btn-primary">🎮 Одиночная игра (с ботами)</button>
       <button type="button" id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (с разных телефонов)</button>
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
-      <button type="button" id="btn-open-collection" class="btn collection-btn">🎨 Коллекция: аватарки и скины</button>
+      <button type="button" id="btn-open-collection" class="btn btn-secondary">🎨 Коллекция</button>
     </div>
   </div>
-  <div class="version-label">v0.5</div>
-</div>
-
-<div id="collection-overlay" class="collection-overlay" role="dialog" aria-modal="true">
-  <div class="collection-panel">
-    <h2 style="margin:0 0 8px;text-align:center;color:#dce9dc;">🎨 Коллекция</h2>
-    <div style="font-size:13px;color:#c8e6c9;margin-bottom:7px;">Аватарка игрока</div>
-    <div class="collection-grid" id="avatar-collection">
-      <button type="button" class="collection-option" data-avatar="🦊">🦊 Лис</button>
-      <button type="button" class="collection-option" data-avatar="🐼">🐼 Панда</button>
-      <button type="button" class="collection-option" data-avatar="🐸">🐸 Лягушка</button>
-      <button type="button" class="collection-option" data-avatar="🐱">🐱 Кот</button>
-    </div>
-    <div style="font-size:13px;color:#c8e6c9;margin-bottom:7px;">Оформление стола</div>
-    <div class="collection-grid" id="skin-collection">
-      <button type="button" class="collection-option" data-skin="forest">🌲 Лесной стол</button>
-      <button type="button" class="collection-option" data-skin="midnight">🌌 Ночная синь</button>
-    </div>
-    <button type="button" id="btn-close-collection" class="btn btn-secondary">Готово</button>
-  </div>
+  <div class="version-label">v0.4</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -268,12 +251,12 @@
   <svg id="ask-arrow-layer" aria-hidden="true">
     <defs>
       <marker id="ask-arrow-head" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-        <path d="M0,0 L10,5 L0,10 Z" fill="#d7dfd5" opacity="0.32"></path>
+        <path d="M0,0 L10,5 L0,10 Z" fill="rgba(255,213,79,0.34)"></path>
       </marker>
     </defs>
     <path id="ask-arrow-line" d="M 0 0 Q 0 0 0 0"
-      fill="none" stroke="#ffd54f" stroke-width="2.4" stroke-linecap="round"
-      marker-end="url(#ask-arrow-head)" opacity="0.32" style="display:none;"></path>
+      fill="none" stroke="rgba(255,213,79,0.34)" stroke-width="2.6" stroke-linecap="round"
+      marker-end="url(#ask-arrow-head)" style="display:none;"></path>
   </svg>
 
   <!-- Лог игры теперь внизу, над картами -->
@@ -285,6 +268,40 @@
       <span>Сундучков: <strong id="my-chests" style="color:#ffd54f;">0</strong> | Карт: <strong id="my-cards-count">0</strong></span>
     </div>
     <div id="my-cards" class="cards-wrap"></div>
+  </div>
+</div>
+
+<!-- Коллекция: дополнительные визуальные настройки, отдельно от логики игры -->
+<div id="collection-overlay" class="game-over-overlay" style="z-index:1100;">
+  <div class="card-box collection-box" style="width:100%;max-width:390px;max-height:90vh;overflow:auto;">
+    <h1 style="margin-top:0;">🎨 Коллекция</h1>
+    <div class="subtitle">Аватарка и оформление стола</div>
+    <div class="collection-section">
+      <div class="panel-title">Аватарка</div>
+      <div id="avatar-options" class="collection-options">
+        <button type="button" class="collection-option" data-avatar="🦊">🦊 Лис</button>
+        <button type="button" class="collection-option" data-avatar="🐼">🐼 Панда</button>
+        <button type="button" class="collection-option" data-avatar="🐱">🐱 Кот</button>
+        <button type="button" class="collection-option" data-avatar="🐸">🐸 Лягушка</button>
+      </div>
+      <button type="button" id="btn-use-tg-avatar" class="btn btn-tg" style="margin-top:8px;">Использовать фото Telegram</button>
+      <div id="tg-avatar-status" class="subtitle" style="margin:6px 0 0;">Фото доступно при запуске игры внутри Telegram, если Telegram передал его приложению.</div>
+    </div>
+    <div class="collection-section">
+      <div class="panel-title">Оформление стола</div>
+      <div class="collection-options">
+        <button type="button" class="collection-option" data-skin="forest">🌲 Лесной</button>
+        <button type="button" class="collection-option" data-skin="midnight">🌙 Ночной</button>
+      </div>
+    </div>
+    <div class="collection-section">
+      <div class="panel-title">Стиль карт</div>
+      <div class="collection-options">
+        <button type="button" class="collection-option" data-card-skin="classic">🂠 Классика</button>
+        <button type="button" class="collection-option" data-card-skin="gold">✨ Золото</button>
+      </div>
+    </div>
+    <button type="button" id="btn-close-collection" class="btn btn-primary" style="margin-top:12px;">Готово</button>
   </div>
 </div>
 
@@ -322,16 +339,10 @@ const PEER_CONFIG = {
 };
 
 let tg = null;
-let telegramUser = null;
-let selectedAvatar = localStorage.getItem('sunduchki-avatar') || '🦊';
-let selectedSkin = localStorage.getItem('sunduchki-skin') || 'forest';
-let telegramPhotoUrl = null;
 try {
   if (window.Telegram && window.Telegram.WebApp) {
     tg = window.Telegram.WebApp;
     tg.ready();
-    telegramUser = tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null;
-    telegramPhotoUrl = telegramUser && telegramUser.photo_url ? telegramUser.photo_url : null;
     tg.expand();
   }
 } catch (e) {}
@@ -357,6 +368,94 @@ let state = {
   botMemory: {},
   gameStarted: false
 };
+
+// Визуальный профиль игрока. Не влияет на правила и сетевую механику партии.
+const PROFILE_STORAGE_KEY = 'sunduchki_profile_v04';
+let localProfile = { avatar: '🦊', avatarUrl: '', useTelegramAvatar: false, skin: 'forest', cardSkin: 'classic' };
+
+function loadLocalProfile() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
+    localProfile = { ...localProfile, ...saved };
+  } catch (e) {}
+  const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  // Если пользователь ещё не выбирал аватар вручную, используем фото Telegram автоматически.
+  if (tgUser && tgUser.photo_url && !Object.prototype.hasOwnProperty.call(saved, 'useTelegramAvatar')) {
+    localProfile.useTelegramAvatar = true;
+  }
+  if (tgUser && tgUser.photo_url && localProfile.useTelegramAvatar) {
+    localProfile.avatarUrl = tgUser.photo_url;
+  }
+  applyLocalSkins();
+}
+function saveLocalProfile() {
+  try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile)); } catch (e) {}
+}
+function applyLocalSkins() {
+  document.body.classList.toggle('skin-midnight', localProfile.skin === 'midnight');
+  document.body.classList.toggle('card-skin-gold', localProfile.cardSkin === 'gold');
+}
+function getPlayerProfile() {
+  return {
+    avatar: localProfile.avatar || '🦊',
+    avatarUrl: localProfile.useTelegramAvatar ? (localProfile.avatarUrl || '') : '',
+  };
+}
+function avatarMarkup(player) {
+  if (player && player.avatarUrl) {
+    const img = document.createElement('img');
+    img.className = 'player-avatar';
+    img.alt = 'Аватар';
+    img.src = player.avatarUrl;
+    img.referrerPolicy = 'no-referrer';
+    return img;
+  }
+  const span = document.createElement('span');
+  span.className = 'p-icon';
+  span.textContent = (player && player.avatar) || (player && player.isBot ? '🤖' : '👤');
+  return span;
+}
+function updateCollectionButtons() {
+  document.querySelectorAll('[data-avatar]').forEach(b => b.classList.toggle('selected', !localProfile.useTelegramAvatar && b.dataset.avatar === localProfile.avatar));
+  document.querySelectorAll('[data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === localProfile.skin));
+  document.querySelectorAll('[data-card-skin]').forEach(b => b.classList.toggle('selected', b.dataset.cardSkin === localProfile.cardSkin));
+}
+function initCollectionUI() {
+  loadLocalProfile();
+  document.getElementById('btn-open-collection').addEventListener('click', () => {
+    updateCollectionButtons();
+    document.getElementById('collection-overlay').style.display = 'flex';
+  });
+  document.getElementById('btn-close-collection').addEventListener('click', () => {
+    document.getElementById('collection-overlay').style.display = 'none';
+  });
+  document.querySelectorAll('[data-avatar]').forEach(b => b.addEventListener('click', () => {
+    localProfile.avatar = b.dataset.avatar;
+    localProfile.useTelegramAvatar = false;
+    localProfile.avatarUrl = '';
+    saveLocalProfile(); updateCollectionButtons();
+  }));
+  document.querySelectorAll('[data-skin]').forEach(b => b.addEventListener('click', () => {
+    localProfile.skin = b.dataset.skin;
+    saveLocalProfile(); applyLocalSkins(); updateCollectionButtons();
+  }));
+  document.querySelectorAll('[data-card-skin]').forEach(b => b.addEventListener('click', () => {
+    localProfile.cardSkin = b.dataset.cardSkin;
+    saveLocalProfile(); applyLocalSkins(); updateCollectionButtons();
+  }));
+  document.getElementById('btn-use-tg-avatar').addEventListener('click', () => {
+    const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (user && user.photo_url) {
+      localProfile.useTelegramAvatar = true;
+      localProfile.avatarUrl = user.photo_url;
+      saveLocalProfile(); updateCollectionButtons();
+      document.getElementById('tg-avatar-status').textContent = 'Фото Telegram выбрано.';
+    } else {
+      document.getElementById('tg-avatar-status').textContent = 'Telegram не передал фото профиля. Откройте игру через Telegram Mini App или выберите эмодзи.';
+    }
+  });
+}
 
 let peer = null;
 let connections = {};
@@ -385,6 +484,7 @@ function clearAllTimers() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  initCollectionUI();
   const nickInput = document.getElementById('player-nick');
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
     nickInput.value = tg.initDataUnsafe.user.first_name;
@@ -404,15 +504,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
   document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
   document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
-  document.getElementById('btn-open-collection').addEventListener('click', openCollection);
-  document.getElementById('btn-close-collection').addEventListener('click', closeCollection);
-  document.querySelectorAll('#avatar-collection [data-avatar]').forEach(btn => btn.addEventListener('click', () => {
-    selectedAvatar = btn.dataset.avatar; localStorage.setItem('sunduchki-avatar', selectedAvatar); renderCollection(); haptic('light');
-  }));
-  document.querySelectorAll('#skin-collection [data-skin]').forEach(btn => btn.addEventListener('click', () => {
-    selectedSkin = btn.dataset.skin; localStorage.setItem('sunduchki-skin', selectedSkin); applySkin(); renderCollection(); haptic('light');
-  }));
-  applySkin(); renderCollection();
 
   // Кнопки оверлея окончания игры
   document.getElementById('btn-play-again').addEventListener('click', () => {
@@ -425,17 +516,6 @@ window.addEventListener('DOMContentLoaded', () => {
     quitToMenu();
   });
 });
-
-function applySkin() {
-  document.body.classList.toggle('skin-midnight', selectedSkin === 'midnight');
-}
-function renderCollection() {
-  document.querySelectorAll('#avatar-collection [data-avatar]').forEach(b => b.classList.toggle('selected', b.dataset.avatar === selectedAvatar));
-  document.querySelectorAll('#skin-collection [data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === selectedSkin));
-}
-function openCollection() { renderCollection(); document.getElementById('collection-overlay').style.display = 'flex'; }
-function closeCollection() { document.getElementById('collection-overlay').style.display = 'none'; }
-function getMyAvatarData() { return { avatar: selectedAvatar, avatarUrl: telegramPhotoUrl || null }; }
 
 function getNick() {
   const val = document.getElementById('player-nick').value.trim();
@@ -473,7 +553,7 @@ function startSoloGame() {
   state.gameStarted = true;
 
   const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
-  state.players = [{ id: 'p0', name: state.myNick, isBot: false, ...getMyAvatarData(), hand: [], chests: [] }];
+  state.players = [{ id: 'p0', name: state.myNick, isBot: false, ...getPlayerProfile(), hand: [], chests: [] }];
   for (let i = 1; i < totalPlayers; i++) {
     state.players.push({ id: 'p' + i, name: `Бот ${i}`, isBot: true, hand: [], chests: [] });
   }
@@ -493,7 +573,7 @@ function createOnlineRoom() {
   state.gameStarted = false;
   roomCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-  state.players = [{ id: 'host', name: state.myNick, isBot: false, ...getMyAvatarData(), hand: [], chests: [] }];
+  state.players = [{ id: 'host', name: state.myNick, isBot: false, ...getPlayerProfile(), hand: [], chests: [] }];
   connections = {};
 
   if (peer) { try { peer.destroy(); } catch (e) {} }
@@ -599,7 +679,7 @@ function joinOnlineRoom() {
 
     const sendJoinRequest = () => {
       if (hostConn && hostConn.open && !joinedConfirmed) {
-        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick, ...getMyAvatarData() });
+        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick, profile: getPlayerProfile() });
       }
     };
 
@@ -679,7 +759,7 @@ function addBotToLobby() {
 
 function broadcastLobby() {
   renderLobby();
-  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot, avatar: p.avatar || '👤', avatarUrl: p.avatarUrl || null }));
+  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot, avatar: p.avatar || '', avatarUrl: p.avatarUrl || '' }));
   Object.values(connections).forEach(c => {
     if (c && c.open) {
       try { c.send({ type: 'LOBBY', players: list }); } catch (e) {}
@@ -693,7 +773,15 @@ function renderLobby() {
   state.players.forEach((p, idx) => {
     const li = document.createElement('li');
     const roleBadge = idx === 0 ? '👑 ' : (p.isBot ? '🤖 ' : '👤 ');
-    li.innerHTML = `<span>${roleBadge}${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
+    const nameWrap = document.createElement('span');
+    nameWrap.appendChild(avatarMarkup(p));
+    const nameText = document.createElement('span');
+    nameText.textContent = `${roleBadge}${p.name}`;
+    nameWrap.appendChild(nameText);
+    const you = document.createElement('span');
+    you.textContent = p.id === state.myId ? '(Вы)' : '';
+    li.appendChild(nameWrap);
+    li.appendChild(you);
     ul.appendChild(li);
   });
   document.getElementById('lobby-count').innerText = state.players.length;
@@ -1185,8 +1273,6 @@ function handleHostData(conn, data) {
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
       if (data.nick) existing.name = data.nick;
-      if (data.avatar) existing.avatar = data.avatar;
-      if (data.avatarUrl) existing.avatarUrl = data.avatarUrl;
       broadcastLobby();
       return;
     }
@@ -1200,8 +1286,8 @@ function handleHostData(conn, data) {
       id: playerId,
       name: data.nick || 'Гость',
       isBot: false,
-      avatar: data.avatar || '👤',
-      avatarUrl: data.avatarUrl || null,
+      avatar: data.profile && data.profile.avatar ? data.profile.avatar : '👤',
+      avatarUrl: data.profile && data.profile.avatarUrl ? data.profile.avatarUrl : '',
       hand: [],
       chests: []
     });
@@ -1252,8 +1338,8 @@ function syncState() {
         id: p.id,
         name: p.name,
         isBot: p.isBot,
-        avatar: p.avatar || '👤',
-        avatarUrl: p.avatarUrl || null,
+        avatar: p.avatar || '',
+        avatarUrl: p.avatarUrl || '',
         chests: p.chests,
         handCount: p.hand.length,
         hand: p.id === peerId ? p.hand : []
@@ -1311,13 +1397,17 @@ function renderGame() {
     div.className = 'player-badge ' + posClasses[idx] +
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
-    div.innerHTML = `
-      <div class="p-name">${p.avatarUrl ? `<img class="avatar-preview" src="${p.avatarUrl}" alt="">` : `<span class="p-icon">${p.isBot ? '🤖' : (p.avatar || '👤')}</span>`} ${p.name}</div>
-      <div class="p-stats">
-        <span>🃏 <b>${count}</b></span>
-        <span>📦 <b>${p.chests.length}</b></span>
-      </div>
-    `;
+    const nameLine = document.createElement('div');
+    nameLine.className = 'p-name';
+    nameLine.appendChild(avatarMarkup(p));
+    const playerName = document.createElement('span');
+    playerName.textContent = p.name;
+    nameLine.appendChild(playerName);
+    const statsLine = document.createElement('div');
+    statsLine.className = 'p-stats';
+    statsLine.innerHTML = `<span>🃏 <b>${count}</b></span><span>📦 <b>${p.chests.length}</b></span>`;
+    div.appendChild(nameLine);
+    div.appendChild(statsLine);
     if (canSelect) {
       div.onclick = () => { haptic('light'); handleHumanChoice('SELECT_TARGET', p.id); };
     }
@@ -1411,7 +1501,7 @@ function renderGame() {
     turnPanel.style.display = 'none';
   }
 
-  document.getElementById('my-name-label').innerHTML = `${me.avatarUrl ? `<img class="avatar-preview" src="${me.avatarUrl}" alt="">` : (me.avatar || '👤')} ${me.name}`;
+  document.getElementById('my-name-label').innerText = `👤 ${me.name}`;
   document.getElementById('my-chests').innerText = me.chests.length;
   document.getElementById('my-cards-count').innerText = me.hand.length;
 
@@ -1489,14 +1579,13 @@ function renderAskArrow() {
   const dy = y2 - y1;
   const length = Math.max(1, Math.hypot(dx, dy));
   // Смещаем контрольную точку перпендикулярно направлению — получается мягкая дуга.
-  const bend = Math.min(72, Math.max(34, length * 0.13));
+  const bend = Math.min(88, Math.max(42, length * 0.16));
   const cx = (x1 + x2) / 2 - (dy / length) * bend;
   const cy = (y1 + y2) / 2 + (dx / length) * bend;
   svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
   svg.setAttribute('width', window.innerWidth);
   svg.setAttribute('height', window.innerHeight);
   line.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
-  line.setAttribute('stroke', '#d7dfd5');
   line.style.display = 'block';
 }
 </script>
