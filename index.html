@@ -92,7 +92,6 @@
   .collection-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
   .collection-option { padding: 10px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.2); background: #1b4d3e; color: white; font-size: 13px; font-weight: 650; }
   .collection-option.selected { border-color: #ffd54f; background: #315f4d; box-shadow: inset 0 0 0 1px rgba(255,213,79,0.35); }
-  .player-avatar { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.35); }
   body.skin-midnight { background: #17243b; }
   body.skin-midnight .hand-zone { background: rgba(12,20,38,0.58); }
   body.skin-midnight .log-box { background: rgba(12,20,38,0.96); border-color: #526b91; }
@@ -271,21 +270,22 @@
   </div>
 </div>
 
-<!-- Коллекция: дополнительные визуальные настройки, отдельно от логики игры -->
+
+<!-- Дополнительная коллекция оформления. Не подключена к игровой/сетевой логике. -->
 <div id="collection-overlay" class="game-over-overlay" style="z-index:1100;">
   <div class="card-box collection-box" style="width:100%;max-width:390px;max-height:90vh;overflow:auto;">
     <h1 style="margin-top:0;">🎨 Коллекция</h1>
-    <div class="subtitle">Аватарка и оформление стола</div>
+    <div class="subtitle">Локальное оформление этого устройства</div>
     <div class="collection-section">
-      <div class="panel-title">Аватарка</div>
-      <div id="avatar-options" class="collection-options">
+      <div class="panel-title">Аватарка (пока только выбор)</div>
+      <div class="collection-options">
         <button type="button" class="collection-option" data-avatar="🦊">🦊 Лис</button>
         <button type="button" class="collection-option" data-avatar="🐼">🐼 Панда</button>
         <button type="button" class="collection-option" data-avatar="🐱">🐱 Кот</button>
         <button type="button" class="collection-option" data-avatar="🐸">🐸 Лягушка</button>
       </div>
       <button type="button" id="btn-use-tg-avatar" class="btn btn-tg" style="margin-top:8px;">Использовать фото Telegram</button>
-      <div id="tg-avatar-status" class="subtitle" style="margin:6px 0 0;">Фото доступно при запуске игры внутри Telegram, если Telegram передал его приложению.</div>
+      <div id="tg-avatar-status" class="subtitle" style="margin:6px 0 0;">Фото доступно внутри Telegram, если Telegram передал его приложению.</div>
     </div>
     <div class="collection-section">
       <div class="panel-title">Оформление стола</div>
@@ -369,92 +369,35 @@ let state = {
   gameStarted: false
 };
 
-// Визуальный профиль игрока. Не влияет на правила и сетевую механику партии.
-const PROFILE_STORAGE_KEY = 'sunduchki_profile_v04';
-let localProfile = { avatar: '🦊', avatarUrl: '', useTelegramAvatar: false, skin: 'forest', cardSkin: 'classic' };
 
-function loadLocalProfile() {
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
-    localProfile = { ...localProfile, ...saved };
-  } catch (e) {}
-  const tgUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-  // Если пользователь ещё не выбирал аватар вручную, используем фото Telegram автоматически.
-  if (tgUser && tgUser.photo_url && !Object.prototype.hasOwnProperty.call(saved, 'useTelegramAvatar')) {
-    localProfile.useTelegramAvatar = true;
-  }
-  if (tgUser && tgUser.photo_url && localProfile.useTelegramAvatar) {
-    localProfile.avatarUrl = tgUser.photo_url;
-  }
-  applyLocalSkins();
-}
-function saveLocalProfile() {
-  try { localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(localProfile)); } catch (e) {}
-}
-function applyLocalSkins() {
-  document.body.classList.toggle('skin-midnight', localProfile.skin === 'midnight');
-  document.body.classList.toggle('card-skin-gold', localProfile.cardSkin === 'gold');
-}
-function getPlayerProfile() {
-  return {
-    avatar: localProfile.avatar || '🦊',
-    avatarUrl: localProfile.useTelegramAvatar ? (localProfile.avatarUrl || '') : '',
+// Изолированные локальные настройки оформления. Не меняют состояние партии и сетевые сообщения.
+const COLLECTION_KEY = 'sunduchki_collection_local_v1';
+let collectionPrefs = { avatar: '🦊', skin: 'forest', cardSkin: 'classic', telegram: false };
+function initCollectionOnly() {
+  try { collectionPrefs = { ...collectionPrefs, ...JSON.parse(localStorage.getItem(COLLECTION_KEY) || '{}') }; } catch (e) {}
+  const apply = () => {
+    document.body.classList.toggle('skin-midnight', collectionPrefs.skin === 'midnight');
+    document.body.classList.toggle('card-skin-gold', collectionPrefs.cardSkin === 'gold');
   };
-}
-function avatarMarkup(player) {
-  if (player && player.avatarUrl) {
-    const img = document.createElement('img');
-    img.className = 'player-avatar';
-    img.alt = 'Аватар';
-    img.src = player.avatarUrl;
-    img.referrerPolicy = 'no-referrer';
-    return img;
-  }
-  const span = document.createElement('span');
-  span.className = 'p-icon';
-  span.textContent = (player && player.avatar) || (player && player.isBot ? '🤖' : '👤');
-  return span;
-}
-function updateCollectionButtons() {
-  document.querySelectorAll('[data-avatar]').forEach(b => b.classList.toggle('selected', !localProfile.useTelegramAvatar && b.dataset.avatar === localProfile.avatar));
-  document.querySelectorAll('[data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === localProfile.skin));
-  document.querySelectorAll('[data-card-skin]').forEach(b => b.classList.toggle('selected', b.dataset.cardSkin === localProfile.cardSkin));
-}
-function initCollectionUI() {
-  loadLocalProfile();
-  document.getElementById('btn-open-collection').addEventListener('click', () => {
-    updateCollectionButtons();
-    document.getElementById('collection-overlay').style.display = 'flex';
-  });
-  document.getElementById('btn-close-collection').addEventListener('click', () => {
-    document.getElementById('collection-overlay').style.display = 'none';
-  });
-  document.querySelectorAll('[data-avatar]').forEach(b => b.addEventListener('click', () => {
-    localProfile.avatar = b.dataset.avatar;
-    localProfile.useTelegramAvatar = false;
-    localProfile.avatarUrl = '';
-    saveLocalProfile(); updateCollectionButtons();
-  }));
-  document.querySelectorAll('[data-skin]').forEach(b => b.addEventListener('click', () => {
-    localProfile.skin = b.dataset.skin;
-    saveLocalProfile(); applyLocalSkins(); updateCollectionButtons();
-  }));
-  document.querySelectorAll('[data-card-skin]').forEach(b => b.addEventListener('click', () => {
-    localProfile.cardSkin = b.dataset.cardSkin;
-    saveLocalProfile(); applyLocalSkins(); updateCollectionButtons();
-  }));
+  const save = () => { try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(collectionPrefs)); } catch (e) {} };
+  const refresh = () => {
+    document.querySelectorAll('[data-avatar]').forEach(b => b.classList.toggle('selected', b.dataset.avatar === collectionPrefs.avatar && !collectionPrefs.telegram));
+    document.querySelectorAll('[data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === collectionPrefs.skin));
+    document.querySelectorAll('[data-card-skin]').forEach(b => b.classList.toggle('selected', b.dataset.cardSkin === collectionPrefs.cardSkin));
+  };
+  const overlay = document.getElementById('collection-overlay');
+  document.getElementById('btn-open-collection').addEventListener('click', () => { refresh(); overlay.style.display = 'flex'; });
+  document.getElementById('btn-close-collection').addEventListener('click', () => { overlay.style.display = 'none'; });
+  document.querySelectorAll('[data-avatar]').forEach(b => b.addEventListener('click', () => { collectionPrefs.avatar = b.dataset.avatar; collectionPrefs.telegram = false; save(); refresh(); }));
+  document.querySelectorAll('[data-skin]').forEach(b => b.addEventListener('click', () => { collectionPrefs.skin = b.dataset.skin; save(); apply(); refresh(); }));
+  document.querySelectorAll('[data-card-skin]').forEach(b => b.addEventListener('click', () => { collectionPrefs.cardSkin = b.dataset.cardSkin; save(); apply(); refresh(); }));
   document.getElementById('btn-use-tg-avatar').addEventListener('click', () => {
-    const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-    if (user && user.photo_url) {
-      localProfile.useTelegramAvatar = true;
-      localProfile.avatarUrl = user.photo_url;
-      saveLocalProfile(); updateCollectionButtons();
-      document.getElementById('tg-avatar-status').textContent = 'Фото Telegram выбрано.';
-    } else {
-      document.getElementById('tg-avatar-status').textContent = 'Telegram не передал фото профиля. Откройте игру через Telegram Mini App или выберите эмодзи.';
-    }
+    const user = (typeof tg !== 'undefined' && tg && tg.initDataUnsafe) ? tg.initDataUnsafe.user : null;
+    const status = document.getElementById('tg-avatar-status');
+    if (user && user.photo_url) { collectionPrefs.telegram = true; save(); refresh(); status.textContent = 'Фото Telegram выбрано (визуально не передаётся другим игрокам, чтобы не менять мультиплеер).'; }
+    else status.textContent = 'Telegram не передал фото профиля. Выберите эмодзи.';
   });
+  apply(); refresh();
 }
 
 let peer = null;
@@ -484,7 +427,7 @@ function clearAllTimers() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  initCollectionUI();
+  initCollectionOnly();
   const nickInput = document.getElementById('player-nick');
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
     nickInput.value = tg.initDataUnsafe.user.first_name;
@@ -553,7 +496,7 @@ function startSoloGame() {
   state.gameStarted = true;
 
   const totalPlayers = parseInt(document.getElementById('solo-count').value, 10);
-  state.players = [{ id: 'p0', name: state.myNick, isBot: false, ...getPlayerProfile(), hand: [], chests: [] }];
+  state.players = [{ id: 'p0', name: state.myNick, isBot: false, hand: [], chests: [] }];
   for (let i = 1; i < totalPlayers; i++) {
     state.players.push({ id: 'p' + i, name: `Бот ${i}`, isBot: true, hand: [], chests: [] });
   }
@@ -573,7 +516,7 @@ function createOnlineRoom() {
   state.gameStarted = false;
   roomCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-  state.players = [{ id: 'host', name: state.myNick, isBot: false, ...getPlayerProfile(), hand: [], chests: [] }];
+  state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
   connections = {};
 
   if (peer) { try { peer.destroy(); } catch (e) {} }
@@ -679,7 +622,7 @@ function joinOnlineRoom() {
 
     const sendJoinRequest = () => {
       if (hostConn && hostConn.open && !joinedConfirmed) {
-        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick, profile: getPlayerProfile() });
+        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
       }
     };
 
@@ -759,7 +702,7 @@ function addBotToLobby() {
 
 function broadcastLobby() {
   renderLobby();
-  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot, avatar: p.avatar || '', avatarUrl: p.avatarUrl || '' }));
+  const list = state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
   Object.values(connections).forEach(c => {
     if (c && c.open) {
       try { c.send({ type: 'LOBBY', players: list }); } catch (e) {}
@@ -773,15 +716,7 @@ function renderLobby() {
   state.players.forEach((p, idx) => {
     const li = document.createElement('li');
     const roleBadge = idx === 0 ? '👑 ' : (p.isBot ? '🤖 ' : '👤 ');
-    const nameWrap = document.createElement('span');
-    nameWrap.appendChild(avatarMarkup(p));
-    const nameText = document.createElement('span');
-    nameText.textContent = `${roleBadge}${p.name}`;
-    nameWrap.appendChild(nameText);
-    const you = document.createElement('span');
-    you.textContent = p.id === state.myId ? '(Вы)' : '';
-    li.appendChild(nameWrap);
-    li.appendChild(you);
+    li.innerHTML = `<span>${roleBadge}${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
     ul.appendChild(li);
   });
   document.getElementById('lobby-count').innerText = state.players.length;
@@ -1286,8 +1221,6 @@ function handleHostData(conn, data) {
       id: playerId,
       name: data.nick || 'Гость',
       isBot: false,
-      avatar: data.profile && data.profile.avatar ? data.profile.avatar : '👤',
-      avatarUrl: data.profile && data.profile.avatarUrl ? data.profile.avatarUrl : '',
       hand: [],
       chests: []
     });
@@ -1338,8 +1271,6 @@ function syncState() {
         id: p.id,
         name: p.name,
         isBot: p.isBot,
-        avatar: p.avatar || '',
-        avatarUrl: p.avatarUrl || '',
         chests: p.chests,
         handCount: p.hand.length,
         hand: p.id === peerId ? p.hand : []
@@ -1397,17 +1328,13 @@ function renderGame() {
     div.className = 'player-badge ' + posClasses[idx] +
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
-    const nameLine = document.createElement('div');
-    nameLine.className = 'p-name';
-    nameLine.appendChild(avatarMarkup(p));
-    const playerName = document.createElement('span');
-    playerName.textContent = p.name;
-    nameLine.appendChild(playerName);
-    const statsLine = document.createElement('div');
-    statsLine.className = 'p-stats';
-    statsLine.innerHTML = `<span>🃏 <b>${count}</b></span><span>📦 <b>${p.chests.length}</b></span>`;
-    div.appendChild(nameLine);
-    div.appendChild(statsLine);
+    div.innerHTML = `
+      <div class="p-name"><span class="p-icon">${p.isBot ? '🤖' : '👤'}</span> ${p.name}</div>
+      <div class="p-stats">
+        <span>🃏 <b>${count}</b></span>
+        <span>📦 <b>${p.chests.length}</b></span>
+      </div>
+    `;
     if (canSelect) {
       div.onclick = () => { haptic('light'); handleHumanChoice('SELECT_TARGET', p.id); };
     }
