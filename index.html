@@ -19,8 +19,7 @@
     position: fixed; right: 12px; bottom: 10px;
     font-size: 12px; color: rgba(255,255,255,0.65);
     background: rgba(0,0,0,0.22); padding: 5px 9px;
-    border-radius: 8px; letter-spacing: 0.3px;
-    pointer-events: none;
+    border-radius: 8px; pointer-events: none;
   }
 
   .card-box { background: rgba(0, 0, 0, 0.28); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); margin: auto 0; }
@@ -54,7 +53,18 @@
     background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 7px 8px;
     border: 2px solid rgba(255,255,255,0.14); transition: all 0.25s; z-index: 10;
   }
+  #opponents-layer {
+    position: absolute; inset: 0; z-index: 10;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto; align-content: space-between;
+    gap: 5px; pointer-events: none;
+  }
+  .player-badge {
+    position: relative; inset: auto; transform: none; width: auto;
+    min-width: 0; padding: 5px 4px; pointer-events: auto;
+  }
   .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.2); }
+
   .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
   .p-name { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -137,7 +147,7 @@
 <div id="screen-menu" class="screen active">
   <div class="card-box">
     <h1>🃏 Сундучки</h1>
-    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–5 игроков</div>
+    <div class="subtitle">Динамическая колода (36 / 52 карты) • 2–8 игроков</div>
 
     <label for="player-nick">Ваш никнейм:</label>
     <input type="text" id="player-nick" placeholder="Введите имя" maxlength="16">
@@ -156,13 +166,13 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.1</div>
+  <div class="version-label">Версия 0.2</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
   <div class="card-box">
     <h1>🌐 Онлайн-игра</h1>
-    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек) • сборка v4</div>
+    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек)</div>
 
     <button type="button" id="btn-create-room" class="btn btn-primary" style="margin-bottom: 14px;">➕ Создать комнату</button>
 
@@ -252,6 +262,8 @@ const RANKS_36 = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
 const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
 const BOT_DELAY = 2600;
 const BOT_STEP_DELAY = 2200;
+const MAX_PLAYERS = 5;
+const GAME_VERSION = '0.2';
 
 const PEER_CONFIG = {
   debug: 1,
@@ -260,10 +272,7 @@ const PEER_CONFIG = {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      { urls: 'stun:stun3.l.google.com:19302' }
     ]
   }
 };
@@ -305,8 +314,6 @@ let hostConn = null;
 let roomCode = '';
 let activeTimer = null;
 let joinRetryTimer = null;
-let answerWatchdog = null;
-let joinAttempts = 0;
 
 function scheduleStep(fn, delay) {
   if (activeTimer) clearTimeout(activeTimer);
@@ -325,10 +332,6 @@ function clearAllTimers() {
     clearInterval(joinRetryTimer);
     joinRetryTimer = null;
   }
-  if (answerWatchdog) {
-    clearTimeout(answerWatchdog);
-    answerWatchdog = null;
-  }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -345,7 +348,7 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
   document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
   document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
-  document.getElementById('btn-join-room').addEventListener('click', () => { joinAttempts = 0; joinOnlineRoom(); });
+  document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
   document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
   document.getElementById('btn-add-bot').addEventListener('click', addBotToLobby);
   document.getElementById('btn-start-mp').addEventListener('click', startMultiplayerGame);
@@ -440,8 +443,9 @@ function createOnlineRoom() {
     const peerId = conn.peer;
 
     const registerConn = () => {
+      // Регистрируем канал, но не рассылаем лобби до JOIN:
+      // иначе новый игрок может получить список до добавления в комнату.
       connections[peerId] = conn;
-      broadcastLobby();
     };
 
     if (conn.open) {
@@ -463,7 +467,7 @@ function createOnlineRoom() {
       } else {
         leftPlayer.isBot = true;
         leftPlayer.name = leftPlayer.name + ' (Бот)';
-        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {}, failedCounts: {}, lastQuestion: null };
+        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
         setLog(`⚠️ ${leftPlayer.name} отключился. Его заменил бот.`);
         if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
           startTurn();
@@ -518,7 +522,7 @@ function joinOnlineRoom() {
       setMpStatus('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
       try { peer.destroy(); } catch (e) {}
     }
-  }, 20000);
+  }, 12000);
 
   peer.on('open', id => {
     state.myId = id;
@@ -542,64 +546,35 @@ function joinOnlineRoom() {
       }, 800);
     });
 
-    // JOINED приходит раньше LOBBY. Открываем экран комнаты уже при JOINED,
-    // иначе флаг joinedConfirmed блокирует прежний переход из обработчика LOBBY.
-    const enterGuestLobby = () => {
-      joinedConfirmed = true;
-      clearTimeout(timeoutTimer);
-      clearAllTimers();
-      btnJoin.disabled = false;
-      setMpStatus('');
-      document.getElementById('lobby-code').innerText = rawCode;
-      document.getElementById('host-controls').style.display = 'none';
-      document.getElementById('guest-wait').style.display = 'block';
-      showScreen('screen-lobby');
-    };
-
     hostConn.on('data', data => {
-      if (!data || !data.type) return;
-
-      if (data.type === 'JOINED') {
-        enterGuestLobby();
-        return;
-      }
-
       if (data.type === 'ROOM_FULL') {
         clearTimeout(timeoutTimer);
         clearAllTimers();
         btnJoin.disabled = false;
-        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра уже началась.');
+        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
         try { peer.destroy(); } catch (e) {}
         return;
       }
-
-      if (data.type === 'LOBBY') {
-        const meInList = (data.players || []).some(p => p.id === state.myId);
-        if (meInList && !joinedConfirmed) enterGuestLobby();
+      if (data.type === 'LOBBY' && !joinedConfirmed) {
+        joinedConfirmed = true;
+        clearTimeout(timeoutTimer);
+        clearAllTimers();
+        btnJoin.disabled = false;
+        setMpStatus('');
+        document.getElementById('lobby-code').innerText = rawCode;
+        document.getElementById('host-controls').style.display = 'none';
+        document.getElementById('guest-wait').style.display = 'block';
+        showScreen('screen-lobby');
       }
-
       handleGuestData(data);
     });
 
     hostConn.on('close', () => {
       clearTimeout(timeoutTimer);
       clearAllTimers();
-      if (!joinedConfirmed) {
-        joinAttempts++;
-        if (joinAttempts < 3) {
-          setMpStatus('⚠️ Связь с хостом оборвалась, пробуем снова (' + joinAttempts + '/3)...');
-          setTimeout(() => {
-            try { peer.destroy(); } catch (e) {}
-            joinOnlineRoom();
-          }, 1500);
-        } else {
-          btnJoin.disabled = false;
-          setMpStatus('❌ Не удалось подключиться за 3 попытки. Проверьте код комнаты и интернет.');
-        }
-      } else {
-        alert('Создатель комнаты закрыл игру');
-        showScreen('screen-menu');
-      }
+      btnJoin.disabled = false;
+      alert('Создатель комнаты закрыл игру');
+      showScreen('screen-menu');
     });
 
     hostConn.on('error', () => {
@@ -619,7 +594,7 @@ function joinOnlineRoom() {
 }
 
 function addBotToLobby() {
-  if (state.players.length >= 5) return;
+  if (state.players.length >= MAX_PLAYERS) return;
   haptic('light');
   const botNum = state.players.filter(p => p.isBot).length + 1;
   state.players.push({
@@ -653,7 +628,7 @@ function renderLobby() {
   });
   document.getElementById('lobby-count').innerText = state.players.length;
   document.getElementById('btn-start-mp').disabled = state.players.length < 2;
-  document.getElementById('btn-add-bot').disabled = state.players.length >= 5;
+  document.getElementById('btn-add-bot').disabled = state.players.length >= MAX_PLAYERS;
 }
 
 function startMultiplayerGame() {
@@ -714,9 +689,7 @@ function initMatch() {
       state.botMemory[p.id] = {
         noRank: new Set(),
         hasRank: new Set(),
-        failedSuits: {},
-        failedCounts: {},
-        lastQuestion: null
+        failedSuits: {}
       };
     }
   });
@@ -903,29 +876,15 @@ function executeBotTurn(bot) {
   }
 
   if (!chosenTarget) {
-    const noRepeat = q => q !== (mem && mem.lastQuestion);
-    const candidates = [];
-    targets.forEach(t => availableRanks.forEach(r => {
-      const q = `${t.id}_${r}`;
-      if (!mem.noRank.has(q) && noRepeat(q)) candidates.push({ t, r });
-    }));
-    if (candidates.length > 0) {
-      const pick = candidates[Math.floor(Math.random() * candidates.length)];
-      chosenTarget = pick.t;
-      chosenRank = pick.r;
-    } else {
-      chosenTarget = targets[Math.floor(Math.random() * targets.length)];
-      chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
-    }
+    chosenTarget = targets[Math.floor(Math.random() * targets.length)];
+    chosenRank = availableRanks[Math.floor(Math.random() * availableRanks.length)];
   }
 
-  if (mem) mem.lastQuestion = `${chosenTarget.id}_${chosenRank}`;
   state.pendingAsk = { fromId: bot.id, toId: chosenTarget.id, rank: chosenRank, count: 0, suits: [] };
   setLog(`🤖 ${bot.name} спрашивает у ${chosenTarget.name}: «Есть ли ${chosenRank}?»`);
 
   if (!chosenTarget.isBot) {
     state.step = 'WAIT_ANSWER';
-    armAnswerWatchdog(bot, chosenTarget, chosenRank);
     syncState();
   } else {
     syncState();
@@ -947,24 +906,13 @@ function resolveHasRankAnswer(asker, target, rank) {
     scheduleStep(() => {
       const mySame = asker.hand.filter(c => c.rank === rank).length;
       const maxPossible = Math.min(3, 4 - mySame);
-      const cKey = `${target.id}_${rank}`;
-      const failedCnt = (state.botMemory[asker.id] && state.botMemory[asker.id].failedCounts && state.botMemory[asker.id].failedCounts[cKey]) ? [...state.botMemory[asker.id].failedCounts[cKey]] : [];
-      const allowedCounts = [];
-      for (let c = 1; c <= maxPossible; c++) if (!failedCnt.includes(c)) allowedCounts.push(c);
-      const guessCount = allowedCounts.length > 0 ? allowedCounts[Math.floor(Math.random() * allowedCounts.length)] : (Math.floor(Math.random() * maxPossible) + 1);
+      const guessCount = Math.floor(Math.random() * maxPossible) + 1;
 
       setLog(`🔢 ${asker.name} предполагает: «У тебя ${guessCount} шт.?»`);
       syncState();
 
       scheduleStep(() => {
         if (guessCount !== matching.length) {
-          const memNow = state.botMemory[asker.id];
-          if (memNow) {
-            const cKey = `${target.id}_${rank}`;
-            if (!memNow.failedCounts) memNow.failedCounts = {};
-            if (!memNow.failedCounts[cKey]) memNow.failedCounts[cKey] = new Set();
-            memNow.failedCounts[cKey].add(guessCount);
-          }
           setLog(`❌ Не угадал! У ${target.name} другое количество. Ход переходит дальше.`);
           syncState();
           scheduleStep(() => advanceTurn(), BOT_STEP_DELAY);
@@ -1019,23 +967,6 @@ function resolveHasRankAnswer(asker, target, rank) {
   }
 }
 
-function armAnswerWatchdog(asker, target, rank) {
-  if (answerWatchdog) clearTimeout(answerWatchdog);
-  const askToken = state.pendingAsk;
-  answerWatchdog = setTimeout(() => {
-    answerWatchdog = null;
-    if (state.step !== 'WAIT_ANSWER' || !state.pendingAsk || state.pendingAsk !== askToken) return;
-    if (target.hand.some(c => c.rank === rank)) {
-      setLog(`⏱️ ${target.name} молчит 60 сек — ответ зафиксирован автоматически: «Да». Продолжаем...`);
-      resolveHasRankAnswer(asker, target, rank);
-    } else {
-      setLog(`⏱️ ${target.name} молчит 60 сек — ответ зафиксирован автоматически: «Нет». Ход переходит дальше.`);
-      recordTableEvent(asker.id, target.id, rank, false, null);
-      advanceTurn();
-    }
-  }, 60000);
-}
-
 function handleHumanChoice(action, payload) {
   if (state.mode === 'guest') {
     if (hostConn && hostConn.open) {
@@ -1051,7 +982,6 @@ function processHumanAction(playerId, action, payload) {
   const currentPlayer = state.players[state.turnIndex];
   const player = state.players.find(p => p.id === playerId);
   if (!player || !currentPlayer) return;
-  if (answerWatchdog) { clearTimeout(answerWatchdog); answerWatchdog = null; }
 
   if (action === 'ANSWER_YES_NO') {
     if (state.step !== 'WAIT_ANSWER' || !state.pendingAsk || state.pendingAsk.toId !== playerId) return;
@@ -1125,15 +1055,6 @@ function processHumanAction(playerId, action, payload) {
 
     if (count !== actualCount) {
       state.step = 'BOT_THINKING';
-      if (asker.isBot) {
-        const memNow = state.botMemory[asker.id];
-        if (memNow) {
-          const cKey = `${target.id}_${rank}`;
-          if (!memNow.failedCounts) memNow.failedCounts = {};
-          if (!memNow.failedCounts[cKey]) memNow.failedCounts[cKey] = new Set();
-          memNow.failedCounts[cKey].add(count);
-        }
-      }
       setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
       syncState();
       scheduleStep(() => advanceTurn(), 2000);
@@ -1191,12 +1112,6 @@ function handleHostData(conn, data) {
     const playerId = conn.peer;
     connections[playerId] = conn;
 
-    const beforeCount = state.players.length;
-    state.players = state.players.filter(p => p.isBot || p.id === 'host' || (connections[p.id] && connections[p.id].open));
-    if (state.players.length !== beforeCount) {
-      broadcastLobby();
-    }
-
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
       if (data.nick) existing.name = data.nick;
@@ -1204,7 +1119,7 @@ function handleHostData(conn, data) {
       return;
     }
 
-    if (state.gameStarted || state.players.length >= 5) {
+    if (state.gameStarted || state.players.length >= MAX_PLAYERS) {
       try { conn.send({ type: 'ROOM_FULL' }); } catch (e) {}
       return;
     }
@@ -1216,7 +1131,6 @@ function handleHostData(conn, data) {
       hand: [],
       chests: []
     });
-    try { conn.send({ type: 'JOINED' }); } catch (e) {}
     broadcastLobby();
   } else if (data.type === 'ACTION') {
     const senderId = conn.peer;
@@ -1310,15 +1224,13 @@ function renderGame() {
     opponents.push(state.players[(myIdx + i) % state.players.length]);
   }
 
-  const posClasses = getOpponentPositions(opponents.length);
-
   opponents.forEach((p, idx) => {
     const count = (p.hand && p.hand.length > 0) ? p.hand.length : (p.handCount || 0);
     const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
 
     const div = document.createElement('div');
     div.id = 'badge-' + p.id;
-    div.className = 'player-badge ' + posClasses[idx] +
+    div.className = 'player-badge' +
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
     div.innerHTML = `
@@ -1460,36 +1372,6 @@ function renderGame() {
     gameOverOverlay.style.display = 'none';
   }
 }
-</script>
-<script>
-// АВТООБНОВЛЕНИЕ: раз в минуту сверяет файл с версией на сервере.
-// При каждой новой сборке меняйте APP_BUILD (например, 'v5').
-const APP_BUILD = 'v4';
-(function () {
-  function checkUpdate() {
-    if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
-    const base = location.href.split('#')[0];
-    const url = base + (base.includes('?') ? '&' : '?') + '_t=' + Date.now();
-    fetch(url, { cache: 'no-store' })
-      .then(r => r.ok ? r.text() : Promise.reject())
-      .then(txt => { if (!txt.includes(APP_BUILD)) showUpdateBanner(); })
-      .catch(() => {});
-  }
-  function showUpdateBanner() {
-    if (document.getElementById('update-banner')) return;
-    const b = document.createElement('button');
-    b.id = 'update-banner';
-    b.innerText = '🔄 Доступна новая версия — обновить';
-    b.style.cssText = 'position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:9999;background:#ffd54f;color:#111;border:none;border-radius:10px;padding:10px 18px;font-weight:bold;box-shadow:0 3px 0 #b8860b;';
-    b.onclick = () => location.reload();
-    document.body.appendChild(b);
-    if (state.step === 'IDLE' || state.step === 'GAME_OVER') {
-      setTimeout(() => location.reload(), 1500);
-    }
-  }
-  setTimeout(checkUpdate, 5000);
-  setInterval(checkUpdate, 60000);
-})();
 </script>
 </body>
 </html>
