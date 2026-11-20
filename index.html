@@ -71,14 +71,14 @@
     display: flex; flex-direction: column; gap: 8px; padding: 0 6px;
   }
   .request-card {
-    display: none; align-self: center; min-width: 54px; min-height: 62px;
-    padding: 5px 8px; border-radius: 9px; border: 1px solid rgba(220,224,215,0.42);
-    background: linear-gradient(145deg, rgba(235,239,232,0.88), rgba(193,204,193,0.88));
-    color: #26382f; box-shadow: 0 2px 8px rgba(0,0,0,0.2); text-align: center;
+    display: none; align-self: center; min-width: 68px; min-height: 78px;
+    padding: 7px 10px; border-radius: 10px; border: 2px solid #ffd54f;
+    background: linear-gradient(145deg, #fff, #e9edf2); color: #1b3550;
+    box-shadow: 0 5px 16px rgba(0,0,0,0.42); text-align: center;
     flex-direction: column; align-items: center; justify-content: center;
   }
-  .request-card .request-rank { font-size: 22px; line-height: 1.05; font-weight: 750; }
-  .request-card .request-mark { font-size: 15px; line-height: 1; color: #68766d; }
+  .request-card .request-rank { font-size: 27px; line-height: 1.1; font-weight: 800; }
+  .request-card .request-mark { font-size: 20px; line-height: 1; color: #c62828; }
   .log-box {
     background: rgba(11, 36, 28, 0.96); border: 1px solid #2e7d32; border-radius: 10px;
     padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.35;
@@ -86,20 +86,6 @@
     margin: 0 0 6px 0;
   }
   #ask-arrow-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 14; pointer-events: none; overflow: visible; }
-  #ask-arrow-line { stroke: rgba(255,213,79,0.34); stroke-width: 2.6; filter: none !important; }
-  #ask-arrow-head path { fill: rgba(255,213,79,0.34); }
-  .collection-section { margin: 12px 0; padding: 10px; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(0,0,0,0.16); }
-  .collection-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
-  .collection-option { padding: 10px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.2); background: #1b4d3e; color: white; font-size: 13px; font-weight: 650; }
-  .collection-option.selected { border-color: #ffd54f; background: #315f4d; box-shadow: inset 0 0 0 1px rgba(255,213,79,0.35); }
-  body.skin-midnight { background: #17243b; }
-  body.skin-midnight .hand-zone { background: rgba(12,20,38,0.58); }
-  body.skin-midnight .log-box { background: rgba(12,20,38,0.96); border-color: #526b91; }
-  body.skin-midnight .player-badge { background: rgba(10,18,34,0.72); }
-  body.card-skin-gold .card { background: #f5e7bd; color: #493719; border: 1px solid #c49a45; }
-  body.card-skin-gold .card.red { color: #a52d2d; }
-  body.card-skin-gold .flying-card:not(.back) { background: #f5e7bd; color: #493719; border: 1px solid #c49a45; }
-  body.card-skin-gold .flying-card.red { color: #a52d2d; }
   .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
   .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -176,7 +162,6 @@
       <button type="button" id="btn-start-solo" class="btn btn-primary">🎮 Одиночная игра (с ботами)</button>
       <button type="button" id="btn-open-mp" class="btn btn-accent">🌐 Мультиплеер (с разных телефонов)</button>
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
-      <button type="button" id="btn-open-collection" class="btn btn-secondary">🎨 Коллекция</button>
     </div>
   </div>
   <div class="version-label">v0.4</div>
@@ -250,12 +235,12 @@
   <svg id="ask-arrow-layer" aria-hidden="true">
     <defs>
       <marker id="ask-arrow-head" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-        <path d="M0,0 L10,5 L0,10 Z" fill="rgba(255,213,79,0.34)"></path>
+        <path d="M0,0 L10,5 L0,10 Z" fill="#ffd54f"></path>
       </marker>
     </defs>
     <path id="ask-arrow-line" d="M 0 0 Q 0 0 0 0"
-      fill="none" stroke="rgba(255,213,79,0.34)" stroke-width="2.6" stroke-linecap="round"
-      marker-end="url(#ask-arrow-head)" style="display:none;"></path>
+      fill="none" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round"
+      marker-end="url(#ask-arrow-head)" style="display:none; filter:drop-shadow(0 1px 3px #000);"></path>
   </svg>
 
   <!-- Лог игры теперь внизу, над картами -->
@@ -267,41 +252,6 @@
       <span>Сундучков: <strong id="my-chests" style="color:#ffd54f;">0</strong> | Карт: <strong id="my-cards-count">0</strong></span>
     </div>
     <div id="my-cards" class="cards-wrap"></div>
-  </div>
-</div>
-
-
-<!-- Дополнительная коллекция оформления. Не подключена к игровой/сетевой логике. -->
-<div id="collection-overlay" class="game-over-overlay" style="z-index:1100;">
-  <div class="card-box collection-box" style="width:100%;max-width:390px;max-height:90vh;overflow:auto;">
-    <h1 style="margin-top:0;">🎨 Коллекция</h1>
-    <div class="subtitle">Локальное оформление этого устройства</div>
-    <div class="collection-section">
-      <div class="panel-title">Аватарка (пока только выбор)</div>
-      <div class="collection-options">
-        <button type="button" class="collection-option" data-avatar="🦊">🦊 Лис</button>
-        <button type="button" class="collection-option" data-avatar="🐼">🐼 Панда</button>
-        <button type="button" class="collection-option" data-avatar="🐱">🐱 Кот</button>
-        <button type="button" class="collection-option" data-avatar="🐸">🐸 Лягушка</button>
-      </div>
-      <button type="button" id="btn-use-tg-avatar" class="btn btn-tg" style="margin-top:8px;">Использовать фото Telegram</button>
-      <div id="tg-avatar-status" class="subtitle" style="margin:6px 0 0;">Фото доступно внутри Telegram, если Telegram передал его приложению.</div>
-    </div>
-    <div class="collection-section">
-      <div class="panel-title">Оформление стола</div>
-      <div class="collection-options">
-        <button type="button" class="collection-option" data-skin="forest">🌲 Лесной</button>
-        <button type="button" class="collection-option" data-skin="midnight">🌙 Ночной</button>
-      </div>
-    </div>
-    <div class="collection-section">
-      <div class="panel-title">Стиль карт</div>
-      <div class="collection-options">
-        <button type="button" class="collection-option" data-card-skin="classic">🂠 Классика</button>
-        <button type="button" class="collection-option" data-card-skin="gold">✨ Золото</button>
-      </div>
-    </div>
-    <button type="button" id="btn-close-collection" class="btn btn-primary" style="margin-top:12px;">Готово</button>
   </div>
 </div>
 
@@ -369,37 +319,6 @@ let state = {
   gameStarted: false
 };
 
-
-// Изолированные локальные настройки оформления. Не меняют состояние партии и сетевые сообщения.
-const COLLECTION_KEY = 'sunduchki_collection_local_v1';
-let collectionPrefs = { avatar: '🦊', skin: 'forest', cardSkin: 'classic', telegram: false };
-function initCollectionOnly() {
-  try { collectionPrefs = { ...collectionPrefs, ...JSON.parse(localStorage.getItem(COLLECTION_KEY) || '{}') }; } catch (e) {}
-  const apply = () => {
-    document.body.classList.toggle('skin-midnight', collectionPrefs.skin === 'midnight');
-    document.body.classList.toggle('card-skin-gold', collectionPrefs.cardSkin === 'gold');
-  };
-  const save = () => { try { localStorage.setItem(COLLECTION_KEY, JSON.stringify(collectionPrefs)); } catch (e) {} };
-  const refresh = () => {
-    document.querySelectorAll('[data-avatar]').forEach(b => b.classList.toggle('selected', b.dataset.avatar === collectionPrefs.avatar && !collectionPrefs.telegram));
-    document.querySelectorAll('[data-skin]').forEach(b => b.classList.toggle('selected', b.dataset.skin === collectionPrefs.skin));
-    document.querySelectorAll('[data-card-skin]').forEach(b => b.classList.toggle('selected', b.dataset.cardSkin === collectionPrefs.cardSkin));
-  };
-  const overlay = document.getElementById('collection-overlay');
-  document.getElementById('btn-open-collection').addEventListener('click', () => { refresh(); overlay.style.display = 'flex'; });
-  document.getElementById('btn-close-collection').addEventListener('click', () => { overlay.style.display = 'none'; });
-  document.querySelectorAll('[data-avatar]').forEach(b => b.addEventListener('click', () => { collectionPrefs.avatar = b.dataset.avatar; collectionPrefs.telegram = false; save(); refresh(); }));
-  document.querySelectorAll('[data-skin]').forEach(b => b.addEventListener('click', () => { collectionPrefs.skin = b.dataset.skin; save(); apply(); refresh(); }));
-  document.querySelectorAll('[data-card-skin]').forEach(b => b.addEventListener('click', () => { collectionPrefs.cardSkin = b.dataset.cardSkin; save(); apply(); refresh(); }));
-  document.getElementById('btn-use-tg-avatar').addEventListener('click', () => {
-    const user = (typeof tg !== 'undefined' && tg && tg.initDataUnsafe) ? tg.initDataUnsafe.user : null;
-    const status = document.getElementById('tg-avatar-status');
-    if (user && user.photo_url) { collectionPrefs.telegram = true; save(); refresh(); status.textContent = 'Фото Telegram выбрано (визуально не передаётся другим игрокам, чтобы не менять мультиплеер).'; }
-    else status.textContent = 'Telegram не передал фото профиля. Выберите эмодзи.';
-  });
-  apply(); refresh();
-}
-
 let peer = null;
 let connections = {};
 let hostConn = null;
@@ -427,7 +346,6 @@ function clearAllTimers() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  initCollectionOnly();
   const nickInput = document.getElementById('player-nick');
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name) {
     nickInput.value = tg.initDataUnsafe.user.first_name;
