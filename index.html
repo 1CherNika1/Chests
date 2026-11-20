@@ -15,6 +15,13 @@
   }
   .screen { display: none; flex-direction: column; width: 100%; max-width: 520px; margin: 0 auto; height: 100%; }
   .screen.active { display: flex; }
+  .version-label {
+    position: fixed; right: 12px; bottom: 10px;
+    font-size: 12px; color: rgba(255,255,255,0.65);
+    background: rgba(0,0,0,0.22); padding: 5px 9px;
+    border-radius: 8px; letter-spacing: 0.3px;
+    pointer-events: none;
+  }
 
   .card-box { background: rgba(0, 0, 0, 0.28); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); margin: auto 0; }
   h1 { text-align: center; margin: 4px 0; font-size: 26px; color: #ffd54f; }
@@ -149,6 +156,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
+  <div class="version-label">Версия 0.1</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -534,35 +542,42 @@ function joinOnlineRoom() {
       }, 800);
     });
 
+    // JOINED приходит раньше LOBBY. Открываем экран комнаты уже при JOINED,
+    // иначе флаг joinedConfirmed блокирует прежний переход из обработчика LOBBY.
+    const enterGuestLobby = () => {
+      joinedConfirmed = true;
+      clearTimeout(timeoutTimer);
+      clearAllTimers();
+      btnJoin.disabled = false;
+      setMpStatus('');
+      document.getElementById('lobby-code').innerText = rawCode;
+      document.getElementById('host-controls').style.display = 'none';
+      document.getElementById('guest-wait').style.display = 'block';
+      showScreen('screen-lobby');
+    };
+
     hostConn.on('data', data => {
+      if (!data || !data.type) return;
+
       if (data.type === 'JOINED') {
-        joinedConfirmed = true;
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('');
+        enterGuestLobby();
+        return;
       }
+
       if (data.type === 'ROOM_FULL') {
         clearTimeout(timeoutTimer);
         clearAllTimers();
         btnJoin.disabled = false;
-        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
+        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра уже началась.');
         try { peer.destroy(); } catch (e) {}
         return;
       }
-      if (data.type === 'LOBBY' && !joinedConfirmed) {
+
+      if (data.type === 'LOBBY') {
         const meInList = (data.players || []).some(p => p.id === state.myId);
-        if (!meInList) return;
-        joinedConfirmed = true;
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('');
-        document.getElementById('lobby-code').innerText = rawCode;
-        document.getElementById('host-controls').style.display = 'none';
-        document.getElementById('guest-wait').style.display = 'block';
-        showScreen('screen-lobby');
+        if (meInList && !joinedConfirmed) enterGuestLobby();
       }
+
       handleGuestData(data);
     });
 
