@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Сундучки — Карточная игра</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
   body {
@@ -154,7 +153,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.4.2</div>
+  <div class="version-label">Версия 0.5.0</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -178,7 +177,7 @@
 
     <button type="button" id="btn-back-menu" class="btn btn-secondary">← Назад в меню</button>
   </div>
-  <div class="version-label">Версия 0.4.2</div>
+  <div class="version-label">Версия 0.5.0</div>
 </div>
 
 <div id="screen-lobby" class="screen">
@@ -200,7 +199,7 @@
 
     <button type="button" id="btn-leave-lobby" class="btn btn-danger" style="margin-top: 10px;">Выйти</button>
   </div>
-  <div class="version-label">Версия 0.4.2</div>
+  <div class="version-label">Версия 0.5.0</div>
 </div>
 
 <div id="screen-game" class="screen">
@@ -260,40 +259,50 @@ const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К'
 const BOT_DELAY = 2600;
 const BOT_STEP_DELAY = 2200;
 const MAX_PLAYERS = 5;
-const GAME_VERSION = '0.4.2';
+const GAME_VERSION = '0.5.0';
 const ROOM_CODE_LENGTH = 5;
 const JOIN_TIMEOUT_MS = 30000;
-const MAX_ROOM_ATTEMPTS = 5;
 const HEARTBEAT_INTERVAL = 10000;
 const HEARTBEAT_TIMEOUT = 35000;
 
-// Обычный режим: Google STUN + открытый TURN openrelay (бесплатно, для продакшена лучше свой coturn).
-// LAN-режим: без STUN/TURN — только прямые host-кандидаты внутри одной Wi-Fi сети.
-const ICE_SERVERS_ONLINE = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:stun3.l.google.com:19302' },
-  { urls: 'stun:stun4.l.google.com:19302' },
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443',
-      'turns:openrelay.metered.ca:443?transport=tcp'
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
-];
+// ---------- Сеть: Trystero (сигналинг через сеть Nostr, данные — напрямую P2P) ----------
 
-function getPeerConfig() {
+const TRYSTERO_APP_ID = 'sunduchki-tg';
+const ROOM_PREFIX = 'sunduchki-tg-';
+const TRYSTERO_ACTION = 'sunduchki-data';
+const TRYSTERO_CDN = 'https://esm.run/trystero';
+
+// LAN-режим: без STUN/TURN — только прямые host-кандидаты внутри одной Wi-Fi сети.
+// Обычный режим: встроенный STUN Trystero + открытый TURN openrelay (для продакшена лучше свой coturn).
+function getTrysteroConfig() {
+  if (lanMode) {
+    return {
+      appId: TRYSTERO_APP_ID,
+      rtcConfig: { iceServers: [] },
+      password: 'sunduchki-room'
+    };
+  }
   return {
-    debug: 1,
-    config: {
-      iceServers: lanMode ? [] : ICE_SERVERS_ONLINE,
-      iceCandidatePoolSize: lanMode ? 0 : 10
-    }
+    appId: TRYSTERO_APP_ID,
+    relayRedundancy: 4,
+    turnConfig: [{
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }],
+    password: 'sunduchki-room'
   };
+}
+
+let trystLib = null;
+async function loadTrystero() {
+  if (trystLib) return trystLib;
+  trystLib = await import(TRYSTERO_CDN);
+  return trystLib;
 }
 
 let tg = null;
@@ -337,15 +346,15 @@ let state = {
 };
 
 let lanMode = false;
-let peer = null;
-let connections = {};
-let connLastSeen = {};
-let hostConn = null;
+let trystRoom = null;
+let trystAction = null;
+let connections = {};      // хост: trystero peerId -> {open, send()}
+let connLastSeen = {};     // хост: время последней активности каждого гостя
+let hostPeerId = null;     // гость: trystero peerId создателя комнаты
 let roomCode = '';
 let activeTimer = null;
 let joinRetryTimer = null;
 let joinProgressTimer = null;
-let roomCreateAttempts = 0;
 let hostHeartbeatTimer = null;
 let guestPingTimer = null;
 let lastHostSeen = 0;
@@ -362,7 +371,7 @@ function scheduleStep(fn, delay) {
 
 function clearAllTimers() {
   if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
-  if (joinRetryTimer) { clearTimeout(joinRetryTimer); joinRetryTimer = null; }
+  if (joinRetryTimer) { clearInterval(joinRetryTimer); joinRetryTimer = null; }
   if (joinProgressTimer) { clearInterval(joinProgressTimer); joinProgressTimer = null; }
 }
 
@@ -380,17 +389,25 @@ function generateRoomCode() {
   return String(Math.floor(min + Math.random() * (max - min + 1)));
 }
 
-// Безопасное закрытие: гасим события close/error у старых соединений,
-// чтобы не срабатывали ложные алерты и не затирался текст ошибки.
-function safeDestroyPeer(p) {
-  if (!p) return;
+// Безопасное закрытие: гасим обработчики старой комнаты, чтобы события
+// onPeerLeave от предыдущего сеанса не портили состояние новой игры.
+function detachTrystero() {
   closingIntentionally = true;
-  try { p.destroy(); } catch (e) {}
+  if (trystRoom) {
+    try { trystRoom.onPeerJoin = null; trystRoom.onPeerLeave = null; } catch (e) {}
+  }
+  if (trystAction) { try { trystAction.onMessage = null; } catch (e) {} }
+  try { if (trystRoom) trystRoom.leave(); } catch (e) {}
+  trystRoom = null;
+  trystAction = null;
+  connections = {};
+  connLastSeen = {};
+  hostPeerId = null;
   setTimeout(() => { closingIntentionally = false; }, 0);
 }
 
 window.addEventListener('pagehide', () => {
-  safeDestroyPeer(peer);
+  detachTrystero();
   stopHostHeartbeat();
   stopGuestPing();
 });
@@ -481,13 +498,14 @@ function startSoloGame() {
 
 // ---------- Хост ----------
 
-function createOnlineRoom() {
+async function createOnlineRoom() {
   haptic('medium');
   clearAllTimers();
   stopHostHeartbeat();
+  detachTrystero();
   const btnCreate = document.getElementById('btn-create-room');
   btnCreate.disabled = true;
-  setMpStatus('Создаём комнату...');
+  setMpStatus('Подключаемся к сети сигнализации...');
 
   state.mode = 'host';
   state.myId = 'host';
@@ -496,105 +514,109 @@ function createOnlineRoom() {
   roomCode = generateRoomCode();
 
   state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
-  connections = {};
-  connLastSeen = {};
 
-  safeDestroyPeer(peer);
-  peer = new Peer('sunduchki-tg-' + roomCode, getPeerConfig());
-
-  peer.on('open', () => {
-    roomCreateAttempts = 0;
+  let lib;
+  try {
+    lib = await loadTrystero();
+  } catch (e) {
     btnCreate.disabled = false;
-    setMpStatus('');
-    document.getElementById('lobby-code').innerText = roomCode;
-    document.getElementById('host-controls').style.display = 'flex';
-    document.getElementById('guest-wait').style.display = 'none';
-    showScreen('screen-lobby');
-    renderLobby();
-    startHostHeartbeat();
-  });
+    state.mode = 'solo';
+    setMpStatus('❌ Не удалось загрузить сетевой модуль. Проверьте интернет и попробуйте ещё раз.');
+    return;
+  }
 
-  peer.on('connection', conn => {
-    const peerId = conn.peer;
-
-    const registerConn = () => {
-      connections[peerId] = conn;
-      connLastSeen[peerId] = Date.now();
-    };
-
-    if (conn.open) registerConn();
-    else conn.on('open', registerConn);
-
-    conn.on('data', data => handleHostData(conn, data));
-
-    conn.on('close', () => {
-      if (closingIntentionally) return;
-      delete connections[peerId];
-      const leftPlayer = state.players.find(p => p.id === peerId);
-      if (!leftPlayer) return;
-
-      if (!state.gameStarted) {
-        state.players = state.players.filter(p => p.id !== peerId);
-        broadcastLobby();
-      } else {
-        leftPlayer.isBot = true;
-        if (!leftPlayer.name.endsWith(' (Бот)')) {
-          leftPlayer.name = leftPlayer.name + ' (Бот)';
-        }
-        state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
-        setLog(`⚠️ ${leftPlayer.name.replace(' (Бот)', '')} отключился. Его заменил бот.`);
-        if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
-          startTurn();
-        } else {
-          syncState();
-        }
-      }
-    });
-
-    conn.on('error', () => { delete connections[peerId]; });
-  });
-
-  peer.on('disconnected', () => {
-    console.warn('[Peer] Host disconnected from signaling, reconnecting...');
-    try { peer.reconnect(); } catch (e) {}
-  });
-
-  peer.on('error', err => {
+  try {
+    trystRoom = lib.joinRoom(getTrysteroConfig(), ROOM_PREFIX + roomCode);
+  } catch (e) {
     btnCreate.disabled = false;
+    state.mode = 'solo';
+    setMpStatus('❌ Не удалось создать комнату. Проверьте интернет и попробуйте ещё раз.');
+    return;
+  }
 
-    if (err.type === 'unavailable-id') {
-      roomCreateAttempts++;
-      if (roomCreateAttempts >= MAX_ROOM_ATTEMPTS) {
-        setMpStatus('❌ Не удалось создать комнату после ' + MAX_ROOM_ATTEMPTS + ' попыток. Попробуйте позже.');
-        return;
-      }
-      setMpStatus(`Код занят, пробуем другой (${roomCreateAttempts}/${MAX_ROOM_ATTEMPTS})...`);
-      setTimeout(() => {
-        if (state.mode === 'host' && !state.gameStarted) createOnlineRoom();
-      }, 500);
-      return;
+  trystAction = trystRoom.makeAction(TRYSTERO_ACTION);
+  trystAction.onMessage = (data, peerMeta) => {
+    const fromId = peerMeta && typeof peerMeta === 'object' ? peerMeta.peerId : peerMeta;
+    if (state.mode === 'host') handleHostData(fromId, data);
+  };
+
+  trystRoom.onPeerJoin = pid => {
+    if (state.mode !== 'host') return;
+    if (!connections[pid]) connections[pid] = makeGuestConn(pid);
+    connLastSeen[pid] = Date.now();
+    // До старта игры сразу отдаём лобби — гость увидит комнату ещё до своего JOIN.
+    // Если игра уже идёт, вернувшемуся гостю состояние отдаст обработчик JOIN.
+    if (!state.gameStarted) {
+      sendToGuest(pid, { type: 'LOBBY', players: lobbyListPayload() });
     }
+  };
 
-    const details = {
-      'network': 'потеряно соединение с сервером сигнализации',
-      'server-error': 'ошибка сервера подключения',
-      'socket-error': 'нет связи с сервером подключения',
-      'socket-closed': 'сервер подключения закрыл соединение'
-    };
-    setMpStatus('❌ ' + (details[err.type] || ('Ошибка: ' + err.type)) + '. Попробуйте ещё раз.');
-  });
+  trystRoom.onPeerLeave = pid => {
+    if (state.mode !== 'host') return;
+    handleGuestDeparture(pid);
+  };
+
+  btnCreate.disabled = false;
+  setMpStatus('');
+  document.getElementById('lobby-code').innerText = roomCode;
+  document.getElementById('host-controls').style.display = 'flex';
+  document.getElementById('guest-wait').style.display = 'none';
+  showScreen('screen-lobby');
+  renderLobby();
+  startHostHeartbeat();
+}
+
+function makeGuestConn(pid) {
+  return {
+    open: true,
+    send: obj => sendToGuest(pid, obj)
+  };
+}
+
+function lobbyListPayload() {
+  return state.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot }));
+}
+
+function sendToGuest(pid, obj) {
+  try { trystAction.send(obj, { target: pid }); } catch (e) {}
+}
+
+// Игрок ушёл или замолчал: до начала игры — удаляем из лобби,
+// после — превращаем в бота, чтобы партия не останавливалась.
+function handleGuestDeparture(pid) {
+  delete connections[pid];
+  const leftPlayer = state.players.find(p => p.id === pid);
+  if (!leftPlayer) return;
+
+  if (!state.gameStarted) {
+    state.players = state.players.filter(p => p.id !== pid);
+    broadcastLobby();
+  } else {
+    leftPlayer.isBot = true;
+    if (!leftPlayer.name.endsWith(' (Бот)')) {
+      leftPlayer.name = leftPlayer.name + ' (Бот)';
+    }
+    state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
+    setLog(`⚠️ ${leftPlayer.name.replace(' (Бот)', '')} отключился. Его заменил бот.`);
+    if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
+      startTurn();
+    } else {
+      syncState();
+    }
+  }
 }
 
 function startHostHeartbeat() {
   stopHostHeartbeat();
   hostHeartbeatTimer = setInterval(() => {
     const now = Date.now();
-    Object.entries(connections).forEach(([id, c]) => {
+    Object.keys(connections).forEach(id => {
+      const c = connections[id];
       if (!c || !c.open) return;
-      try { c.send({ type: 'PING' }); } catch (e) {}
-      // Мёртвый канал (событие close не пришло) — принудительно закрываем
+      sendToGuest(id, { type: 'PING' });
+      // Гость молчит дольше 35 сек — считаем его отключившимся
       if (connLastSeen[id] && now - connLastSeen[id] > HEARTBEAT_TIMEOUT) {
-        try { c.close(); } catch (e) {}
+        handleGuestDeparture(id);
       }
     });
   }, HEARTBEAT_INTERVAL);
@@ -620,34 +642,40 @@ function buildStatePayload(peerId) {
   };
 }
 
-function handleHostData(conn, data) {
+function handleHostData(fromId, data) {
   if (!data || !data.type) return;
-  connLastSeen[conn.peer] = Date.now();
+  connLastSeen[fromId] = Date.now();
 
   if (data.type === 'PING') {
-    try { conn.send({ type: 'PONG' }); } catch (e) {}
+    sendToGuest(fromId, { type: 'PONG' });
     return;
   }
   if (data.type === 'PONG') return;
 
   if (data.type === 'JOIN') {
-    const playerId = conn.peer;
-    connections[playerId] = conn;
+    const playerId = fromId;
+    if (!connections[playerId]) connections[playerId] = makeGuestConn(playerId);
     connLastSeen[playerId] = Date.now();
 
     const existing = state.players.find(p => p.id === playerId);
     if (existing) {
-      if (data.nick) existing.name = data.nick;
-      // Возвращение гостя после краткого разрыва: сразу отдаём актуальное состояние
+      // Возвращение гостя: если его место успел занять бот — возвращаем человека
+      if (existing.isBot) {
+        existing.isBot = false;
+        existing.name = data.nick || existing.name.replace(' (Бот)', '');
+      } else if (data.nick) {
+        existing.name = data.nick;
+      }
+      // После краткого разрыва сразу отдаём актуальное состояние
       if (state.gameStarted) {
-        try { conn.send(buildStatePayload(playerId)); } catch (e) {}
+        sendToGuest(playerId, buildStatePayload(playerId));
       }
       broadcastLobby();
       return;
     }
 
     if (state.gameStarted || state.players.length >= MAX_PLAYERS) {
-      try { conn.send({ type: 'ROOM_FULL' }); } catch (e) {}
+      sendToGuest(playerId, { type: 'ROOM_FULL' });
       return;
     }
 
@@ -660,13 +688,13 @@ function handleHostData(conn, data) {
     });
     broadcastLobby();
   } else if (data.type === 'ACTION') {
-    processHumanAction(conn.peer, data.action, data.payload);
+    processHumanAction(fromId, data.action, data.payload);
   }
 }
 
 // ---------- Гость ----------
 
-function joinOnlineRoom() {
+async function joinOnlineRoom() {
   const rawCode = document.getElementById('join-code').value.replace(/\D/g, '');
   if (rawCode.length !== ROOM_CODE_LENGTH) {
     setMpStatus(`⚠️ Введите ровно ${ROOM_CODE_LENGTH} цифр кода комнаты`);
@@ -677,6 +705,7 @@ function joinOnlineRoom() {
   haptic('medium');
   clearAllTimers();
   stopGuestPing();
+  detachTrystero();
   const btnJoin = document.getElementById('btn-join-room');
   btnJoin.disabled = true;
   setMpStatus('Подключаемся к комнате ' + rawCode + '...');
@@ -686,146 +715,133 @@ function joinOnlineRoom() {
   state.gameStarted = false;
   roomCode = rawCode;
   joinedConfirmed = false;
+  lastHostSeen = 0;
 
-  safeDestroyPeer(peer);
-  peer = new Peer(getPeerConfig());
-
-  const finishWithError = (message) => {
-    closingIntentionally = true;
-    clearAllTimers();
-    stopGuestPing();
-    joinedConfirmed = true; // чтобы close/error-обработчики ничего не перетирали
+  let lib;
+  try {
+    lib = await loadTrystero();
+  } catch (e) {
     btnJoin.disabled = false;
-    setMpStatus(message);
-    safeDestroyPeer(peer);
+    state.mode = 'solo';
+    setMpStatus('❌ Не удалось загрузить сетевой модуль. Проверьте интернет и попробуйте ещё раз.');
+    return;
+  }
+
+  try {
+    trystRoom = lib.joinRoom(getTrysteroConfig(), ROOM_PREFIX + roomCode);
+  } catch (e) {
+    btnJoin.disabled = false;
+    state.mode = 'solo';
+    setMpStatus('❌ Не удалось подключиться к комнате. Проверьте код и интернет, попробуйте ещё раз.');
+    return;
+  }
+
+  state.myId = lib.selfId;
+
+  trystAction = trystRoom.makeAction(TRYSTERO_ACTION);
+  trystAction.onMessage = (data, peerMeta) => {
+    const fromId = peerMeta && typeof peerMeta === 'object' ? peerMeta.peerId : peerMeta;
+    if (state.mode === 'guest') handleGuestMessage(fromId, data);
+  };
+
+  trystRoom.onPeerJoin = pid => {
+    if (state.mode === 'guest') sendJoinTo(pid);
+  };
+  trystRoom.onPeerLeave = pid => {
+    if (state.mode === 'guest' && pid === hostPeerId) guestLostConnection();
   };
 
   const joinStart = Date.now();
   joinProgressTimer = setInterval(() => {
-    if (joinedConfirmed) { clearAllTimers(); return; }
+    if (joinedConfirmed) { clearInterval(joinProgressTimer); joinProgressTimer = null; return; }
     const elapsed = Math.floor((Date.now() - joinStart) / 1000);
     if (elapsed >= JOIN_TIMEOUT_MS / 1000) {
-      finishWithError(lanMode
+      guestFinishError(lanMode
         ? '❌ Не удалось подключиться за 30 сек. Проверьте код, что оба устройства в одной Wi-Fi сети и у создателя есть интернет. Если не помогает — переключитесь на обычный режим.'
-        : '❌ Не удалось подключиться за 30 сек. Причины: код неверный, создатель закрыл комнату, сеть блокирует P2P или VPN. Попробуйте сменить Wi-Fi ↔ мобильный интернет, отключить VPN, включить LAN-режим, если вы в одной сети, или создать комнату заново.');
+        : '❌ Не удалось подключиться за 30 сек. Причины: код неверный, создатель закрыл комнату или сеть блокирует P2P-соединение. Попробуйте сменить Wi-Fi ↔ мобильный интернет, включить LAN-режим, если вы в одной сети, или создать комнату заново.');
       return;
     }
     setMpStatus(`Подключаемся... осталось ~${Math.max(0, JOIN_TIMEOUT_MS / 1000 - elapsed)} с`);
   }, 2000);
 
-  peer.on('open', id => {
-    state.myId = id;
-    if (hostConn && hostConn.open) return; // живой канал уже есть (после reconnect)
-    connectToHost(rawCode, btnJoin, finishWithError);
-  });
+  // Анонсируем себя всем участникам комнаты, пока не получим лобби от хоста
+  joinRetryTimer = setInterval(() => {
+    if (joinedConfirmed || !trystRoom) { clearInterval(joinRetryTimer); joinRetryTimer = null; return; }
+    Object.keys(trystRoom.getPeers() || {}).forEach(sendJoinTo);
+  }, 2000);
 
-  peer.on('disconnected', () => {
-    console.warn('[Peer] Guest disconnected from signaling, reconnecting...');
-    try { peer.reconnect(); } catch (e) {}
-  });
-
-  peer.on('error', err => {
-    if (joinedConfirmed || closingIntentionally) return;
-    const details = {
-      'peer-unavailable': 'комната с таким кодом сейчас недоступна',
-      'network': 'потеряно соединение с сервером сигнализации',
-      'server-error': 'ошибка сервера подключения',
-      'socket-error': 'нет связи с сервером подключения',
-      'socket-closed': 'сервер подключения закрыл соединение',
-      'unavailable-id': 'не удалось создать уникальный ID игрока'
-    };
-    finishWithError('❌ ' + (details[err.type] || ('Ошибка сети: ' + err.type)) + '. Попробуйте ещё раз.');
-  });
+  startGuestPing();
 }
 
-function connectToHost(rawCode, btnJoin, finishWithError) {
-  try {
-    hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true, serialization: 'json' });
-  } catch (e) {
-    finishWithError('❌ Не удалось установить соединение с комнатой.');
+function sendJoinTo(pid) {
+  try { trystAction.send({ type: 'JOIN', id: state.myId, nick: state.myNick }, { target: pid }); } catch (e) {}
+}
+
+function guestFinishError(message) {
+  clearAllTimers();
+  stopGuestPing();
+  detachTrystero();
+  document.getElementById('btn-join-room').disabled = false;
+  setMpStatus(message);
+}
+
+function guestLostConnection() {
+  if (closingIntentionally || !joinedConfirmed) return;
+  clearAllTimers();
+  stopGuestPing();
+  detachTrystero();
+  document.getElementById('game-over-overlay').style.display = 'none';
+  showScreen('screen-mp-menu');
+  setMpStatus('⚠️ Соединение с комнатой потеряно. Возможно, создатель закрыл игру. Нажмите «Войти в комнату», чтобы вернуться — место сохранится.');
+}
+
+function handleGuestMessage(fromId, data) {
+  if (!data || !data.type) return;
+
+  // Первое лобби в комнате всегда от хоста — запоминаем его peerId
+  if (!hostPeerId) {
+    if (data.type !== 'LOBBY') return;
+    hostPeerId = fromId;
+  }
+  // Сообщения других гостей игнорируем: играем только через хоста
+  if (fromId !== hostPeerId) return;
+
+  lastHostSeen = Date.now();
+
+  if (data.type === 'PING') {
+    try { trystAction.send({ type: 'PONG' }, { target: hostPeerId }); } catch (e) {}
+    return;
+  }
+  if (data.type === 'PONG') return;
+
+  if (data.type === 'ROOM_FULL') {
+    guestFinishError('❌ В комнате уже максимум (5 игроков) или игра идёт.');
     return;
   }
 
-  hostConn.on('iceStateChanged', iceState => {
-    console.log('[ICE]', iceState);
-    if (iceState === 'failed') {
-      setMpStatus(lanMode
-        ? '❌ Не удалось соединиться напрямую по Wi-Fi. Проверьте, что оба устройства в одной сети (гостевой Wi-Fi с изоляцией клиентов не подходит).'
-        : '❌ P2P-соединение не установилось (NAT/файрвол). Помогает смена сети или отключение VPN. Пробуем TURN...');
-    }
-  });
-
-  const sendJoinRequest = () => {
-    if (hostConn && hostConn.open && !joinedConfirmed) {
-      try { hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick }); } catch (e) {}
-    }
-  };
-
-  let retryDelay = 800;
-  const retryJoin = () => {
-    if (joinedConfirmed || !hostConn) return;
-    sendJoinRequest();
-    retryDelay = Math.min(retryDelay + 600, 3000);
-    joinRetryTimer = setTimeout(retryJoin, retryDelay);
-  };
-
-  hostConn.on('open', () => {
-    sendJoinRequest();
-    joinRetryTimer = setTimeout(retryJoin, retryDelay);
-    lastHostSeen = Date.now();
-    startGuestPing();
-  });
-
-  hostConn.on('data', data => {
-    if (!data || !data.type) return;
-    lastHostSeen = Date.now();
-    if (data.type === 'PONG') return;
-
-    if (data.type === 'ROOM_FULL') {
-      finishWithError('❌ В комнате уже максимум (5 игроков) или игра идёт.');
-      return;
-    }
-
-    if (data.type === 'LOBBY' && !joinedConfirmed) {
-      joinedConfirmed = true;
-      clearAllTimers();
-      btnJoin.disabled = false;
-      setMpStatus('');
-      document.getElementById('lobby-code').innerText = rawCode;
-      document.getElementById('host-controls').style.display = 'none';
-      document.getElementById('guest-wait').style.display = 'block';
-      showScreen('screen-lobby');
-    }
-    handleGuestData(data);
-  });
-
-  hostConn.on('close', () => {
-    if (closingIntentionally) return;
+  if ((data.type === 'LOBBY' || data.type === 'STATE') && !joinedConfirmed) {
+    joinedConfirmed = true;
     clearAllTimers();
-    stopGuestPing();
-    btnJoin.disabled = false;
-    document.getElementById('game-over-overlay').style.display = 'none';
-    showScreen('screen-mp-menu');
-    setMpStatus('⚠️ Соединение с комнатой потеряно. Возможно, создатель закрыл игру. Нажмите «Войти в комнату», чтобы вернуться — место сохранится.');
-  });
-
-  hostConn.on('error', () => {
-    if (closingIntentionally) return;
-    if (joinedConfirmed) return;
-    finishWithError('❌ Ошибка соединения с комнатой. Попробуйте ещё раз.');
-  });
+    document.getElementById('btn-join-room').disabled = false;
+    setMpStatus('');
+    document.getElementById('lobby-code').innerText = roomCode;
+    document.getElementById('host-controls').style.display = 'none';
+    document.getElementById('guest-wait').style.display = 'block';
+    showScreen('screen-lobby');
+  }
+  applyGuestPayload(data);
 }
 
 function startGuestPing() {
   stopGuestPing();
   guestPingTimer = setInterval(() => {
     const now = Date.now();
-    if (hostConn && hostConn.open) {
-      try { hostConn.send({ type: 'PING' }); } catch (e) {}
+    if (trystRoom && hostPeerId && trystRoom.getPeers()[hostPeerId]) {
+      try { trystAction.send({ type: 'PING' }, { target: hostPeerId }); } catch (e) {}
     }
-    // Хост замолчал — считаем канал мёртвым и закрываем (сработает on('close'))
+    // Хост молчит дольше 35 сек — считаем соединение потерянным
     if (joinedConfirmed && lastHostSeen && now - lastHostSeen > HEARTBEAT_TIMEOUT) {
-      try { hostConn && hostConn.close(); } catch (e) {}
+      guestLostConnection();
     }
   }, HEARTBEAT_INTERVAL);
 }
@@ -882,10 +898,10 @@ function leaveRoom() {
   clearAllTimers();
   stopHostHeartbeat();
   stopGuestPing();
-  safeDestroyPeer(peer);
+  detachTrystero();
   connections = {};
   connLastSeen = {};
-  hostConn = null;
+  hostPeerId = null;
   document.getElementById('game-over-overlay').style.display = 'none';
   showScreen('screen-menu');
 }
@@ -896,10 +912,10 @@ function quitToMenu() {
   stopGuestPing();
   state.step = 'GAME_OVER';
   state.gameStarted = false;
-  safeDestroyPeer(peer);
+  detachTrystero();
   connections = {};
   connLastSeen = {};
-  hostConn = null;
+  hostPeerId = null;
   document.getElementById('game-over-overlay').style.display = 'none';
   showScreen('screen-menu');
 }
@@ -1210,8 +1226,8 @@ function resolveHasRankAnswer(asker, target, rank) {
 
 function handleHumanChoice(action, payload) {
   if (state.mode === 'guest') {
-    if (hostConn && hostConn.open) {
-      try { hostConn.send({ type: 'ACTION', playerId: state.myId, action, payload }); } catch (e) {}
+    if (trystRoom && hostPeerId) {
+      try { trystAction.send({ type: 'ACTION', playerId: state.myId, action, payload }, { target: hostPeerId }); } catch (e) {}
     }
     return;
   }
@@ -1348,7 +1364,7 @@ function processHumanAction(playerId, action, payload) {
 
 // ---------- Синхронизация ----------
 
-function handleGuestData(data) {
+function applyGuestPayload(data) {
   if (!data || !data.type) return;
 
   if (data.type === 'LOBBY') {
