@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Сундучки — Карточная игра v0.4</title>
+<title>Сундучки — Карточная игра</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
@@ -15,9 +15,13 @@
   }
   .screen { display: none; flex-direction: column; width: 100%; max-width: 520px; margin: 0 auto; height: 100%; }
   .screen.active { display: flex; }
+  .version-label {
+    position: fixed; right: 12px; bottom: 10px;
+    font-size: 12px; color: rgba(255,255,255,0.65);
+    background: rgba(0,0,0,0.22); padding: 5px 9px;
+    border-radius: 8px; pointer-events: none;
+  }
 
-  #screen-menu { position: relative; }
-  .version-label { position: fixed; right: 14px; bottom: 10px; color: rgba(255,255,255,0.62); font-size: 11px; letter-spacing: 0.4px; }
   .card-box { background: rgba(0, 0, 0, 0.28); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.1); margin: auto 0; }
   h1 { text-align: center; margin: 4px 0; font-size: 26px; color: #ffd54f; }
   .subtitle { text-align: center; font-size: 13px; color: #a5d6a7; margin-bottom: 12px; }
@@ -44,19 +48,27 @@
     position: relative; flex: 1; display: flex; flex-direction: column;
     justify-content: center; align-items: center; min-height: 250px; margin: 4px 0;
   }
-  #opponents-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
   .player-badge {
-    position: absolute; width: 126px; min-height: 54px;
-    background: rgba(0, 0, 0, 0.52); border-radius: 11px; padding: 9px 10px;
+    position: absolute; width: 118px;
+    background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 7px 8px;
     border: 2px solid rgba(255,255,255,0.14); transition: all 0.25s; z-index: 10;
-    pointer-events: auto;
+  }
+  #opponents-layer {
+    position: absolute; inset: 0; z-index: 10;
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto auto; align-content: space-between;
+    gap: 5px; pointer-events: none;
+  }
+  .player-badge {
+    position: relative; inset: auto; transform: none; width: auto;
+    min-width: 0; padding: 5px 4px; pointer-events: auto;
   }
   .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.2); }
+
   .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
-  .p-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .p-icon { font-size: 19px; vertical-align: -1px; }
-  .p-stats { display: flex; justify-content: space-between; font-size: 12px; color: #a5d6a7; margin-top: 5px; }
+  .p-name { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-stats { display: flex; justify-content: space-between; font-size: 11px; color: #a5d6a7; margin-top: 3px; }
 
   .pos-top-center { top: 0; left: 50%; transform: translateX(-50%); }
   .pos-top-left { top: 0; left: 0; }
@@ -67,25 +79,15 @@
   .pos-bot-right { bottom: 0; right: 0; }
 
   .center-table {
-    width: 100%; max-width: 300px; z-index: 15;
+    width: 100%; max-width: 340px; z-index: 15;
     display: flex; flex-direction: column; gap: 8px; padding: 0 6px;
   }
-  .request-card {
-    display: none; align-self: center; min-width: 68px; min-height: 78px;
-    padding: 7px 10px; border-radius: 10px; border: 2px solid #ffd54f;
-    background: linear-gradient(145deg, #fff, #e9edf2); color: #1b3550;
-    box-shadow: 0 5px 16px rgba(0,0,0,0.42); text-align: center;
-    flex-direction: column; align-items: center; justify-content: center;
-  }
-  .request-card .request-rank { font-size: 27px; line-height: 1.1; font-weight: 800; }
-  .request-card .request-mark { font-size: 20px; line-height: 1; color: #c62828; }
   .log-box {
-    background: rgba(11, 36, 28, 0.96); border: 1px solid #2e7d32; border-radius: 10px;
-    padding: 10px 12px; text-align: center; font-size: 16px; line-height: 1.35;
-    min-height: 62px; display: flex; align-items: center; justify-content: center;
+    background: rgba(11, 36, 28, 0.94); border: 1px solid #2e7d32; border-radius: 10px;
+    padding: 8px 10px; text-align: center; font-size: 13px; line-height: 1.35;
+    min-height: 48px; display: flex; align-items: center; justify-content: center;
     margin: 0 0 6px 0;
   }
-  #ask-arrow-layer { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 14; pointer-events: none; overflow: visible; }
   .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
   .grid-ranks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -164,7 +166,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">v0.4</div>
+  <div class="version-label">Версия 0.3</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -214,10 +216,6 @@
     <div id="opponents-layer"></div>
 
     <div class="center-table">
-      <div id="request-card" class="request-card" aria-hidden="true">
-        <div class="request-rank">?</div>
-        <div class="request-mark">?</div>
-      </div>
       <div id="answer-modal" class="answer-banner" style="display:none;">
         <div id="answer-question" class="answer-text">У вас спрашивают карту...</div>
         <div class="answer-btns">
@@ -232,16 +230,6 @@
       </div>
     </div>
   </div>
-  <svg id="ask-arrow-layer" aria-hidden="true">
-    <defs>
-      <marker id="ask-arrow-head" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-        <path d="M0,0 L10,5 L0,10 Z" fill="#ffd54f"></path>
-      </marker>
-    </defs>
-    <path id="ask-arrow-line" d="M 0 0 Q 0 0 0 0"
-      fill="none" stroke="#ffd54f" stroke-width="3.5" stroke-linecap="round"
-      marker-end="url(#ask-arrow-head)" style="display:none; filter:drop-shadow(0 1px 3px #000);"></path>
-  </svg>
 
   <!-- Лог игры теперь внизу, над картами -->
   <div id="game-log" class="log-box">Подготовка стола...</div>
@@ -275,6 +263,7 @@ const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К'
 const BOT_DELAY = 2600;
 const BOT_STEP_DELAY = 2200;
 const MAX_PLAYERS = 5;
+const GAME_VERSION = '0.3';
 
 const PEER_CONFIG = {
   debug: 1,
@@ -283,7 +272,18 @@ const PEER_CONFIG = {
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' }
+      { urls: 'stun:stun3.l.google.com:19302' },
+      // TURN помогает телефонам за мобильным NAT/строгими роутерами
+      // установить соединение, когда прямой WebRTC-канал не проходит.
+      {
+        urls: [
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turns:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
     ]
   }
 };
@@ -454,8 +454,9 @@ function createOnlineRoom() {
     const peerId = conn.peer;
 
     const registerConn = () => {
+      // Регистрируем канал, но не рассылаем лобби до JOIN:
+      // иначе новый игрок может получить список до добавления в комнату.
       connections[peerId] = conn;
-      broadcastLobby();
     };
 
     if (conn.open) {
@@ -529,7 +530,7 @@ function joinOnlineRoom() {
     if (!joinedConfirmed) {
       clearAllTimers();
       btnJoin.disabled = false;
-      setMpStatus('❌ Комната не найдена, переполнена (макс. 5) или игра уже началась.');
+      setMpStatus('❌ Нет ответа от комнаты. Проверьте код, что создатель не закрыл комнату и что у обоих телефонов стабильный интернет. Если ошибка повторяется — попробуйте другую сеть.');
       try { peer.destroy(); } catch (e) {}
     }
   }, 12000);
@@ -565,8 +566,7 @@ function joinOnlineRoom() {
         try { peer.destroy(); } catch (e) {}
         return;
       }
-      if (data.type === 'LOBBY' && !joinedConfirmed && Array.isArray(data.players)
-          && data.players.some(player => player && player.id === state.myId)) {
+      if (data.type === 'LOBBY' && !joinedConfirmed) {
         joinedConfirmed = true;
         clearTimeout(timeoutTimer);
         clearAllTimers();
@@ -600,7 +600,15 @@ function joinOnlineRoom() {
     clearTimeout(timeoutTimer);
     clearAllTimers();
     btnJoin.disabled = false;
-    setMpStatus('❌ Ошибка сети (' + err.type + '). Проверьте интернет.');
+    const details = {
+      'peer-unavailable': 'комната с таким кодом сейчас недоступна',
+      'network': 'потеряно соединение с сервером сигнализации',
+      'server-error': 'ошибка сервера подключения',
+      'socket-error': 'не удалось связаться с сервером подключения',
+      'socket-closed': 'сервер подключения закрыл соединение',
+      'unavailable-id': 'не удалось создать уникальный ID игрока'
+    };
+    setMpStatus('❌ ' + (details[err.type] || ('Ошибка сети: ' + err.type)) + '. Попробуйте ещё раз.');
   });
 }
 
@@ -1235,19 +1243,17 @@ function renderGame() {
     opponents.push(state.players[(myIdx + i) % state.players.length]);
   }
 
-  const posClasses = getOpponentPositions(opponents.length);
-
   opponents.forEach((p, idx) => {
     const count = (p.hand && p.hand.length > 0) ? p.hand.length : (p.handCount || 0);
     const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
 
     const div = document.createElement('div');
     div.id = 'badge-' + p.id;
-    div.className = 'player-badge ' + posClasses[idx] +
+    div.className = 'player-badge' +
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
     div.innerHTML = `
-      <div class="p-name"><span class="p-icon">${p.isBot ? '🤖' : '👤'}</span> ${p.name}</div>
+      <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
       <div class="p-stats">
         <span>🃏 <b>${count}</b></span>
         <span>📦 <b>${p.chests.length}</b></span>
@@ -1384,54 +1390,6 @@ function renderGame() {
   } else {
     gameOverOverlay.style.display = 'none';
   }
-
-  // Карта запроса показывает только номинал и вопросительный знак, без масти.
-  const requestCard = document.getElementById('request-card');
-  if (state.pendingAsk && state.pendingAsk.rank) {
-    requestCard.style.display = 'flex';
-    requestCard.querySelector('.request-rank').textContent = state.pendingAsk.rank;
-    requestCard.querySelector('.request-mark').textContent = '?';
-    requestCard.setAttribute('aria-hidden', 'false');
-  } else {
-    requestCard.style.display = 'none';
-    requestCard.setAttribute('aria-hidden', 'true');
-  }
-  renderAskArrow();
-}
-
-function renderAskArrow() {
-  const svg = document.getElementById('ask-arrow-layer');
-  const line = document.getElementById('ask-arrow-line');
-  if (!svg || !line || !state.pendingAsk || !state.pendingAsk.rank) {
-    if (line) line.style.display = 'none';
-    return;
-  }
-  const fromEl = state.pendingAsk.fromId === state.myId
-    ? document.getElementById('my-hand-zone')
-    : document.getElementById('badge-' + state.pendingAsk.fromId);
-  const toEl = state.pendingAsk.toId === state.myId
-    ? document.getElementById('my-hand-zone')
-    : document.getElementById('badge-' + state.pendingAsk.toId);
-  if (!fromEl || !toEl) { line.style.display = 'none'; return; }
-
-  const a = fromEl.getBoundingClientRect();
-  const b = toEl.getBoundingClientRect();
-  const x1 = a.left + a.width / 2;
-  const y1 = a.top + a.height / 2;
-  const x2 = b.left + b.width / 2;
-  const y2 = b.top + b.height / 2;
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const length = Math.max(1, Math.hypot(dx, dy));
-  // Смещаем контрольную точку перпендикулярно направлению — получается мягкая дуга.
-  const bend = Math.min(88, Math.max(42, length * 0.16));
-  const cx = (x1 + x2) / 2 - (dy / length) * bend;
-  const cy = (y1 + y2) / 2 + (dx / length) * bend;
-  svg.setAttribute('viewBox', `0 0 ${window.innerWidth} ${window.innerHeight}`);
-  svg.setAttribute('width', window.innerWidth);
-  svg.setAttribute('height', window.innerHeight);
-  line.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`);
-  line.style.display = 'block';
 }
 </script>
 </body>
