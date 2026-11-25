@@ -153,7 +153,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.5.1</div>
+  <div class="version-label">Версия 0.5.2</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -185,7 +185,7 @@
 
     <button type="button" id="btn-back-menu" class="btn btn-secondary">← Назад в меню</button>
   </div>
-  <div class="version-label">Версия 0.5.1</div>
+  <div class="version-label">Версия 0.5.2</div>
 </div>
 
 <div id="screen-lobby" class="screen">
@@ -208,7 +208,7 @@
 
     <button type="button" id="btn-leave-lobby" class="btn btn-danger" style="margin-top: 10px;">Выйти</button>
   </div>
-  <div class="version-label">Версия 0.5.1</div>
+  <div class="version-label">Версия 0.5.2</div>
 </div>
 
 <div id="screen-game" class="screen">
@@ -506,11 +506,10 @@ function detachTrystero() {
   setTimeout(() => { closingIntentionally = false; }, 0);
 }
 
-window.addEventListener('pagehide', () => {
-  detachTrystero();
-  stopHostHeartbeat();
-  stopGuestPing();
-});
+// ВАЖНО: НЕ рвём соединение при pagehide. На мобильных браузерах это событие
+// срабатывает при сворачивании игры (например, чтобы переслать код комнаты),
+// и комната умирала молча — отсюда «то пускает, то нет». Мёртвых участников
+// убирает heartbeat по таймауту, а при закрытии вкладки сработает onPeerLeave.
 
 window.addEventListener('DOMContentLoaded', () => {
   const nickInput = document.getElementById('player-nick');
@@ -762,6 +761,11 @@ function startHostHeartbeat() {
     Object.keys(connections).forEach(id => {
       const c = connections[id];
       if (!c || !c.open) return;
+      // До старта игры дублируем лобби: первая копия могла не дойти,
+      // пока канал данных только открывался.
+      if (!state.gameStarted) {
+        sendToGuest(id, { type: 'LOBBY', players: lobbyListPayload() });
+      }
       sendToGuest(id, { type: 'PING' });
       // Гость молчит дольше 35 сек — считаем его отключившимся
       if (connLastSeen[id] && now - connLastSeen[id] > HEARTBEAT_TIMEOUT) {
@@ -952,7 +956,7 @@ function handleGuestMessage(fromId, data) {
 
   // Первое лобби в комнате всегда от хоста — запоминаем его peerId
   if (!hostPeerId) {
-    if (data.type !== 'LOBBY') return;
+    if (data.type !== 'LOBBY' && data.type !== 'PING') return;
     hostPeerId = fromId;
   }
   // Сообщения других гостей игнорируем: играем только через хоста
@@ -962,6 +966,9 @@ function handleGuestMessage(fromId, data) {
 
   if (data.type === 'PING') {
     trystAction.send({ type: 'PONG' }, hostPeerId);
+    // Хост на связи, но лобби могло потеряться — досылаем JOIN,
+    // в ответ хост разошлёт лобби всем заново.
+    if (!joinedConfirmed) sendJoinTo(hostPeerId);
     return;
   }
   if (data.type === 'PONG') return;
