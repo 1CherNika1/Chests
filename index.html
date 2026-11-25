@@ -48,11 +48,6 @@
     position: relative; flex: 1; display: flex; flex-direction: column;
     justify-content: center; align-items: center; min-height: 250px; margin: 4px 0;
   }
-  .player-badge {
-    position: absolute; width: 118px;
-    background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 7px 8px;
-    border: 2px solid rgba(255,255,255,0.14); transition: all 0.25s; z-index: 10;
-  }
   #opponents-layer {
     position: absolute; inset: 0; z-index: 10;
     display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -60,23 +55,16 @@
     gap: 5px; pointer-events: none;
   }
   .player-badge {
-    position: relative; inset: auto; transform: none; width: auto;
-    min-width: 0; padding: 5px 4px; pointer-events: auto;
+    position: relative; width: auto; min-width: 0; padding: 5px 4px;
+    background: rgba(0, 0, 0, 0.45); border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.14); transition: all 0.25s;
+    pointer-events: auto;
   }
   .player-badge.active-turn { border-color: #ffd54f; background: rgba(255, 213, 79, 0.2); }
-
   .player-badge.selectable { border-color: #4caf50; cursor: pointer; animation: pulse 1.2s infinite; }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0.5); } 50% { box-shadow: 0 0 0 6px rgba(76,175,80,0); } }
   .p-name { font-weight: bold; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .p-stats { display: flex; justify-content: space-between; font-size: 11px; color: #a5d6a7; margin-top: 3px; }
-
-  .pos-top-center { top: 0; left: 50%; transform: translateX(-50%); }
-  .pos-top-left { top: 0; left: 0; }
-  .pos-top-right { top: 0; right: 0; }
-  .pos-mid-left { top: 44%; left: 0; transform: translateY(-50%); }
-  .pos-mid-right { top: 44%; right: 0; transform: translateY(-50%); }
-  .pos-bot-left { bottom: 0; left: 0; }
-  .pos-bot-right { bottom: 0; right: 0; }
 
   .center-table {
     width: 100%; max-width: 340px; z-index: 15;
@@ -166,30 +154,38 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.3</div>
+  <div class="version-label">Версия 0.4.2</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
   <div class="card-box">
     <h1>🌐 Онлайн-игра</h1>
-    <div class="subtitle">Подключайтесь по 4-значному коду (от 2 до 5 человек)</div>
+    <div class="subtitle">Подключайтесь по 5-значному коду (от 2 до 5 человек)</div>
+
+    <label for="mp-mode">Режим подключения:</label>
+    <select id="mp-mode">
+      <option value="online" selected>Интернет (любые сети)</option>
+      <option value="lan">LAN — одна Wi-Fi сеть (быстрее)</option>
+    </select>
+    <div id="mp-mode-hint" style="font-size:12px; color:#a5d6a7; margin:-6px 0 12px 0;">Обычный режим: играет из любых сетей, где есть интернет.</div>
 
     <button type="button" id="btn-create-room" class="btn btn-primary" style="margin-bottom: 14px;">➕ Создать комнату</button>
 
-    <label for="join-code">Или введите 4-значный код друга:</label>
-    <input type="text" inputmode="numeric" id="join-code" placeholder="Например: 4819" maxlength="4">
+    <label for="join-code">Или введите 5-значный код друга:</label>
+    <input type="text" inputmode="numeric" id="join-code" placeholder="Например: 48193" maxlength="5">
     <button type="button" id="btn-join-room" class="btn btn-accent" style="margin-bottom: 8px;">🚪 Войти в комнату</button>
     <div id="mp-status" style="text-align:center; font-size:13px; color:#ffd54f; min-height:20px; margin-bottom:8px;"></div>
 
     <button type="button" id="btn-back-menu" class="btn btn-secondary">← Назад в меню</button>
   </div>
+  <div class="version-label">Версия 0.4.2</div>
 </div>
 
 <div id="screen-lobby" class="screen">
   <div class="card-box">
     <h1>Комната</h1>
     <div class="subtitle">Ждём подключения игроков (от 2 до 5)</div>
-    <div id="lobby-code" class="code-display">----</div>
+    <div id="lobby-code" class="code-display">-----</div>
 
     <button type="button" id="btn-invite-room" class="btn btn-tg" style="margin-bottom: 10px;">📨 Пригласить друга (с кодом)</button>
 
@@ -204,6 +200,7 @@
 
     <button type="button" id="btn-leave-lobby" class="btn btn-danger" style="margin-top: 10px;">Выйти</button>
   </div>
+  <div class="version-label">Версия 0.4.2</div>
 </div>
 
 <div id="screen-game" class="screen">
@@ -231,7 +228,7 @@
     </div>
   </div>
 
-  <!-- Лог игры теперь внизу, над картами -->
+  <!-- Лог игры внизу, над картами -->
   <div id="game-log" class="log-box">Подготовка стола...</div>
 
   <div id="my-hand-zone" class="hand-zone">
@@ -263,30 +260,41 @@ const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К'
 const BOT_DELAY = 2600;
 const BOT_STEP_DELAY = 2200;
 const MAX_PLAYERS = 5;
-const GAME_VERSION = '0.3';
+const GAME_VERSION = '0.4.2';
+const ROOM_CODE_LENGTH = 5;
+const JOIN_TIMEOUT_MS = 30000;
+const MAX_ROOM_ATTEMPTS = 5;
+const HEARTBEAT_INTERVAL = 10000;
+const HEARTBEAT_TIMEOUT = 35000;
 
-const PEER_CONFIG = {
-  debug: 1,
-  config: {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
-      // TURN помогает телефонам за мобильным NAT/строгими роутерами
-      // установить соединение, когда прямой WebRTC-канал не проходит.
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turns:openrelay.metered.ca:443?transport=tcp'
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-      }
-    ]
+// Обычный режим: Google STUN + открытый TURN openrelay (бесплатно, для продакшена лучше свой coturn).
+// LAN-режим: без STUN/TURN — только прямые host-кандидаты внутри одной Wi-Fi сети.
+const ICE_SERVERS_ONLINE = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443',
+      'turns:openrelay.metered.ca:443?transport=tcp'
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
   }
-};
+];
+
+function getPeerConfig() {
+  return {
+    debug: 1,
+    config: {
+      iceServers: lanMode ? [] : ICE_SERVERS_ONLINE,
+      iceCandidatePoolSize: lanMode ? 0 : 10
+    }
+  };
+}
 
 let tg = null;
 try {
@@ -306,6 +314,15 @@ function haptic(type = 'light') {
   } catch (e) {}
 }
 
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 let state = {
   mode: 'solo',
   myId: 'p0',
@@ -319,12 +336,21 @@ let state = {
   gameStarted: false
 };
 
+let lanMode = false;
 let peer = null;
 let connections = {};
+let connLastSeen = {};
 let hostConn = null;
 let roomCode = '';
 let activeTimer = null;
 let joinRetryTimer = null;
+let joinProgressTimer = null;
+let roomCreateAttempts = 0;
+let hostHeartbeatTimer = null;
+let guestPingTimer = null;
+let lastHostSeen = 0;
+let joinedConfirmed = false;
+let closingIntentionally = false;
 
 function scheduleStep(fn, delay) {
   if (activeTimer) clearTimeout(activeTimer);
@@ -335,15 +361,39 @@ function scheduleStep(fn, delay) {
 }
 
 function clearAllTimers() {
-  if (activeTimer) {
-    clearTimeout(activeTimer);
-    activeTimer = null;
-  }
-  if (joinRetryTimer) {
-    clearInterval(joinRetryTimer);
-    joinRetryTimer = null;
-  }
+  if (activeTimer) { clearTimeout(activeTimer); activeTimer = null; }
+  if (joinRetryTimer) { clearTimeout(joinRetryTimer); joinRetryTimer = null; }
+  if (joinProgressTimer) { clearInterval(joinProgressTimer); joinProgressTimer = null; }
 }
+
+function stopHostHeartbeat() {
+  if (hostHeartbeatTimer) { clearInterval(hostHeartbeatTimer); hostHeartbeatTimer = null; }
+}
+
+function stopGuestPing() {
+  if (guestPingTimer) { clearInterval(guestPingTimer); guestPingTimer = null; }
+}
+
+function generateRoomCode() {
+  const min = Math.pow(10, ROOM_CODE_LENGTH - 1);
+  const max = Math.pow(10, ROOM_CODE_LENGTH) - 1;
+  return String(Math.floor(min + Math.random() * (max - min + 1)));
+}
+
+// Безопасное закрытие: гасим события close/error у старых соединений,
+// чтобы не срабатывали ложные алерты и не затирался текст ошибки.
+function safeDestroyPeer(p) {
+  if (!p) return;
+  closingIntentionally = true;
+  try { p.destroy(); } catch (e) {}
+  setTimeout(() => { closingIntentionally = false; }, 0);
+}
+
+window.addEventListener('pagehide', () => {
+  safeDestroyPeer(peer);
+  stopHostHeartbeat();
+  stopGuestPing();
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   const nickInput = document.getElementById('player-nick');
@@ -354,10 +404,12 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-start-solo').addEventListener('click', startSoloGame);
   document.getElementById('btn-open-mp').addEventListener('click', () => {
     document.getElementById('mp-status').innerText = '';
+    updateModeHint();
     showScreen('screen-mp-menu');
   });
   document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('screen-menu'));
   document.getElementById('btn-share-bot').addEventListener('click', () => shareToTelegram(''));
+  document.getElementById('mp-mode').addEventListener('change', updateModeHint);
   document.getElementById('btn-create-room').addEventListener('click', createOnlineRoom);
   document.getElementById('btn-join-room').addEventListener('click', joinOnlineRoom);
   document.getElementById('btn-invite-room').addEventListener('click', () => shareToTelegram(roomCode));
@@ -366,7 +418,6 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-leave-lobby').addEventListener('click', leaveRoom);
   document.getElementById('btn-quit-game').addEventListener('click', quitToMenu);
 
-  // Кнопки оверлея окончания игры
   document.getElementById('btn-play-again').addEventListener('click', () => {
     if (state.mode === 'guest') return;
     haptic('medium');
@@ -377,6 +428,13 @@ window.addEventListener('DOMContentLoaded', () => {
     quitToMenu();
   });
 });
+
+function updateModeHint() {
+  lanMode = document.getElementById('mp-mode').value === 'lan';
+  document.getElementById('mp-mode-hint').innerText = lanMode
+    ? 'LAN-режим: оба телефона в одной Wi-Fi сети. Соединение быстрее и надёжнее. Интернет нужен хотя бы у создателя — для служебных данных.'
+    : 'Обычный режим: играет из любых сетей, где есть интернет.';
+}
 
 function getNick() {
   const val = document.getElementById('player-nick').value.trim();
@@ -421,9 +479,12 @@ function startSoloGame() {
   initMatch();
 }
 
+// ---------- Хост ----------
+
 function createOnlineRoom() {
   haptic('medium');
   clearAllTimers();
+  stopHostHeartbeat();
   const btnCreate = document.getElementById('btn-create-room');
   btnCreate.disabled = true;
   setMpStatus('Создаём комнату...');
@@ -432,15 +493,17 @@ function createOnlineRoom() {
   state.myId = 'host';
   state.myNick = getNick();
   state.gameStarted = false;
-  roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+  roomCode = generateRoomCode();
 
   state.players = [{ id: 'host', name: state.myNick, isBot: false, hand: [], chests: [] }];
   connections = {};
+  connLastSeen = {};
 
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer('sunduchki-tg-' + roomCode, PEER_CONFIG);
+  safeDestroyPeer(peer);
+  peer = new Peer('sunduchki-tg-' + roomCode, getPeerConfig());
 
   peer.on('open', () => {
+    roomCreateAttempts = 0;
     btnCreate.disabled = false;
     setMpStatus('');
     document.getElementById('lobby-code').innerText = roomCode;
@@ -448,26 +511,24 @@ function createOnlineRoom() {
     document.getElementById('guest-wait').style.display = 'none';
     showScreen('screen-lobby');
     renderLobby();
+    startHostHeartbeat();
   });
 
   peer.on('connection', conn => {
     const peerId = conn.peer;
 
     const registerConn = () => {
-      // Регистрируем канал, но не рассылаем лобби до JOIN:
-      // иначе новый игрок может получить список до добавления в комнату.
       connections[peerId] = conn;
+      connLastSeen[peerId] = Date.now();
     };
 
-    if (conn.open) {
-      registerConn();
-    } else {
-      conn.on('open', registerConn);
-    }
+    if (conn.open) registerConn();
+    else conn.on('open', registerConn);
 
     conn.on('data', data => handleHostData(conn, data));
 
     conn.on('close', () => {
+      if (closingIntentionally) return;
       delete connections[peerId];
       const leftPlayer = state.players.find(p => p.id === peerId);
       if (!leftPlayer) return;
@@ -477,9 +538,11 @@ function createOnlineRoom() {
         broadcastLobby();
       } else {
         leftPlayer.isBot = true;
-        leftPlayer.name = leftPlayer.name + ' (Бот)';
+        if (!leftPlayer.name.endsWith(' (Бот)')) {
+          leftPlayer.name = leftPlayer.name + ' (Бот)';
+        }
         state.botMemory[leftPlayer.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
-        setLog(`⚠️ ${leftPlayer.name} отключился. Его заменил бот.`);
+        setLog(`⚠️ ${leftPlayer.name.replace(' (Бот)', '')} отключился. Его заменил бот.`);
         if (state.players[state.turnIndex]?.id === leftPlayer.id || state.pendingAsk?.toId === leftPlayer.id) {
           startTurn();
         } else {
@@ -488,31 +551,132 @@ function createOnlineRoom() {
       }
     });
 
-    conn.on('error', () => {
-      delete connections[peerId];
-    });
+    conn.on('error', () => { delete connections[peerId]; });
+  });
+
+  peer.on('disconnected', () => {
+    console.warn('[Peer] Host disconnected from signaling, reconnecting...');
+    try { peer.reconnect(); } catch (e) {}
   });
 
   peer.on('error', err => {
     btnCreate.disabled = false;
+
     if (err.type === 'unavailable-id') {
-      createOnlineRoom();
+      roomCreateAttempts++;
+      if (roomCreateAttempts >= MAX_ROOM_ATTEMPTS) {
+        setMpStatus('❌ Не удалось создать комнату после ' + MAX_ROOM_ATTEMPTS + ' попыток. Попробуйте позже.');
+        return;
+      }
+      setMpStatus(`Код занят, пробуем другой (${roomCreateAttempts}/${MAX_ROOM_ATTEMPTS})...`);
+      setTimeout(() => {
+        if (state.mode === 'host' && !state.gameStarted) createOnlineRoom();
+      }, 500);
       return;
     }
-    setMpStatus('Ошибка сети: ' + err.type + '. Попробуйте ещё раз.');
+
+    const details = {
+      'network': 'потеряно соединение с сервером сигнализации',
+      'server-error': 'ошибка сервера подключения',
+      'socket-error': 'нет связи с сервером подключения',
+      'socket-closed': 'сервер подключения закрыл соединение'
+    };
+    setMpStatus('❌ ' + (details[err.type] || ('Ошибка: ' + err.type)) + '. Попробуйте ещё раз.');
   });
 }
 
+function startHostHeartbeat() {
+  stopHostHeartbeat();
+  hostHeartbeatTimer = setInterval(() => {
+    const now = Date.now();
+    Object.entries(connections).forEach(([id, c]) => {
+      if (!c || !c.open) return;
+      try { c.send({ type: 'PING' }); } catch (e) {}
+      // Мёртвый канал (событие close не пришло) — принудительно закрываем
+      if (connLastSeen[id] && now - connLastSeen[id] > HEARTBEAT_TIMEOUT) {
+        try { c.close(); } catch (e) {}
+      }
+    });
+  }, HEARTBEAT_INTERVAL);
+}
+
+function buildStatePayload(peerId) {
+  const sanitizedPlayers = state.players.map(p => ({
+    id: p.id,
+    name: p.name,
+    isBot: p.isBot,
+    chests: p.chests,
+    handCount: p.hand.length,
+    hand: p.id === peerId ? p.hand : []
+  }));
+  return {
+    type: 'STATE',
+    players: sanitizedPlayers,
+    activeRanks: state.activeRanks,
+    turnIndex: state.turnIndex,
+    step: state.step,
+    pendingAsk: state.pendingAsk,
+    log: document.getElementById('game-log').innerText
+  };
+}
+
+function handleHostData(conn, data) {
+  if (!data || !data.type) return;
+  connLastSeen[conn.peer] = Date.now();
+
+  if (data.type === 'PING') {
+    try { conn.send({ type: 'PONG' }); } catch (e) {}
+    return;
+  }
+  if (data.type === 'PONG') return;
+
+  if (data.type === 'JOIN') {
+    const playerId = conn.peer;
+    connections[playerId] = conn;
+    connLastSeen[playerId] = Date.now();
+
+    const existing = state.players.find(p => p.id === playerId);
+    if (existing) {
+      if (data.nick) existing.name = data.nick;
+      // Возвращение гостя после краткого разрыва: сразу отдаём актуальное состояние
+      if (state.gameStarted) {
+        try { conn.send(buildStatePayload(playerId)); } catch (e) {}
+      }
+      broadcastLobby();
+      return;
+    }
+
+    if (state.gameStarted || state.players.length >= MAX_PLAYERS) {
+      try { conn.send({ type: 'ROOM_FULL' }); } catch (e) {}
+      return;
+    }
+
+    state.players.push({
+      id: playerId,
+      name: data.nick || 'Гость',
+      isBot: false,
+      hand: [],
+      chests: []
+    });
+    broadcastLobby();
+  } else if (data.type === 'ACTION') {
+    processHumanAction(conn.peer, data.action, data.payload);
+  }
+}
+
+// ---------- Гость ----------
+
 function joinOnlineRoom() {
   const rawCode = document.getElementById('join-code').value.replace(/\D/g, '');
-  if (rawCode.length !== 4) {
-    setMpStatus('⚠️ Введите ровно 4 цифры кода комнаты');
+  if (rawCode.length !== ROOM_CODE_LENGTH) {
+    setMpStatus(`⚠️ Введите ровно ${ROOM_CODE_LENGTH} цифр кода комнаты`);
     haptic('error');
     return;
   }
 
   haptic('medium');
   clearAllTimers();
+  stopGuestPing();
   const btnJoin = document.getElementById('btn-join-room');
   btnJoin.disabled = true;
   setMpStatus('Подключаемся к комнате ' + rawCode + '...');
@@ -521,96 +685,152 @@ function joinOnlineRoom() {
   state.myNick = getNick();
   state.gameStarted = false;
   roomCode = rawCode;
+  joinedConfirmed = false;
 
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer(PEER_CONFIG);
+  safeDestroyPeer(peer);
+  peer = new Peer(getPeerConfig());
 
-  let joinedConfirmed = false;
-  const timeoutTimer = setTimeout(() => {
-    if (!joinedConfirmed) {
-      clearAllTimers();
-      btnJoin.disabled = false;
-      setMpStatus('❌ Нет ответа от комнаты. Проверьте код, что создатель не закрыл комнату и что у обоих телефонов стабильный интернет. Если ошибка повторяется — попробуйте другую сеть.');
-      try { peer.destroy(); } catch (e) {}
+  const finishWithError = (message) => {
+    closingIntentionally = true;
+    clearAllTimers();
+    stopGuestPing();
+    joinedConfirmed = true; // чтобы close/error-обработчики ничего не перетирали
+    btnJoin.disabled = false;
+    setMpStatus(message);
+    safeDestroyPeer(peer);
+  };
+
+  const joinStart = Date.now();
+  joinProgressTimer = setInterval(() => {
+    if (joinedConfirmed) { clearAllTimers(); return; }
+    const elapsed = Math.floor((Date.now() - joinStart) / 1000);
+    if (elapsed >= JOIN_TIMEOUT_MS / 1000) {
+      finishWithError(lanMode
+        ? '❌ Не удалось подключиться за 30 сек. Проверьте код, что оба устройства в одной Wi-Fi сети и у создателя есть интернет. Если не помогает — переключитесь на обычный режим.'
+        : '❌ Не удалось подключиться за 30 сек. Причины: код неверный, создатель закрыл комнату, сеть блокирует P2P или VPN. Попробуйте сменить Wi-Fi ↔ мобильный интернет, отключить VPN, включить LAN-режим, если вы в одной сети, или создать комнату заново.');
+      return;
     }
-  }, 12000);
+    setMpStatus(`Подключаемся... осталось ~${Math.max(0, JOIN_TIMEOUT_MS / 1000 - elapsed)} с`);
+  }, 2000);
 
   peer.on('open', id => {
     state.myId = id;
-    hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true, serialization: 'json' });
+    if (hostConn && hostConn.open) return; // живой канал уже есть (после reconnect)
+    connectToHost(rawCode, btnJoin, finishWithError);
+  });
 
-    const sendJoinRequest = () => {
-      if (hostConn && hostConn.open && !joinedConfirmed) {
-        hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick });
-      }
-    };
-
-    hostConn.on('open', () => {
-      sendJoinRequest();
-      joinRetryTimer = setInterval(() => {
-        if (joinedConfirmed) {
-          clearInterval(joinRetryTimer);
-          joinRetryTimer = null;
-        } else {
-          sendJoinRequest();
-        }
-      }, 800);
-    });
-
-    hostConn.on('data', data => {
-      if (data.type === 'ROOM_FULL') {
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('❌ В комнате уже максимум (5 игроков) или игра идёт.');
-        try { peer.destroy(); } catch (e) {}
-        return;
-      }
-      if (data.type === 'LOBBY' && !joinedConfirmed) {
-        joinedConfirmed = true;
-        clearTimeout(timeoutTimer);
-        clearAllTimers();
-        btnJoin.disabled = false;
-        setMpStatus('');
-        document.getElementById('lobby-code').innerText = rawCode;
-        document.getElementById('host-controls').style.display = 'none';
-        document.getElementById('guest-wait').style.display = 'block';
-        showScreen('screen-lobby');
-      }
-      handleGuestData(data);
-    });
-
-    hostConn.on('close', () => {
-      clearTimeout(timeoutTimer);
-      clearAllTimers();
-      btnJoin.disabled = false;
-      alert('Создатель комнаты закрыл игру');
-      showScreen('screen-menu');
-    });
-
-    hostConn.on('error', () => {
-      clearTimeout(timeoutTimer);
-      clearAllTimers();
-      btnJoin.disabled = false;
-      setMpStatus('❌ Ошибка соединения с комнатой.');
-    });
+  peer.on('disconnected', () => {
+    console.warn('[Peer] Guest disconnected from signaling, reconnecting...');
+    try { peer.reconnect(); } catch (e) {}
   });
 
   peer.on('error', err => {
-    clearTimeout(timeoutTimer);
-    clearAllTimers();
-    btnJoin.disabled = false;
+    if (joinedConfirmed || closingIntentionally) return;
     const details = {
       'peer-unavailable': 'комната с таким кодом сейчас недоступна',
       'network': 'потеряно соединение с сервером сигнализации',
       'server-error': 'ошибка сервера подключения',
-      'socket-error': 'не удалось связаться с сервером подключения',
+      'socket-error': 'нет связи с сервером подключения',
       'socket-closed': 'сервер подключения закрыл соединение',
       'unavailable-id': 'не удалось создать уникальный ID игрока'
     };
-    setMpStatus('❌ ' + (details[err.type] || ('Ошибка сети: ' + err.type)) + '. Попробуйте ещё раз.');
+    finishWithError('❌ ' + (details[err.type] || ('Ошибка сети: ' + err.type)) + '. Попробуйте ещё раз.');
   });
 }
+
+function connectToHost(rawCode, btnJoin, finishWithError) {
+  try {
+    hostConn = peer.connect('sunduchki-tg-' + rawCode, { reliable: true, serialization: 'json' });
+  } catch (e) {
+    finishWithError('❌ Не удалось установить соединение с комнатой.');
+    return;
+  }
+
+  hostConn.on('iceStateChanged', iceState => {
+    console.log('[ICE]', iceState);
+    if (iceState === 'failed') {
+      setMpStatus(lanMode
+        ? '❌ Не удалось соединиться напрямую по Wi-Fi. Проверьте, что оба устройства в одной сети (гостевой Wi-Fi с изоляцией клиентов не подходит).'
+        : '❌ P2P-соединение не установилось (NAT/файрвол). Помогает смена сети или отключение VPN. Пробуем TURN...');
+    }
+  });
+
+  const sendJoinRequest = () => {
+    if (hostConn && hostConn.open && !joinedConfirmed) {
+      try { hostConn.send({ type: 'JOIN', id: state.myId, nick: state.myNick }); } catch (e) {}
+    }
+  };
+
+  let retryDelay = 800;
+  const retryJoin = () => {
+    if (joinedConfirmed || !hostConn) return;
+    sendJoinRequest();
+    retryDelay = Math.min(retryDelay + 600, 3000);
+    joinRetryTimer = setTimeout(retryJoin, retryDelay);
+  };
+
+  hostConn.on('open', () => {
+    sendJoinRequest();
+    joinRetryTimer = setTimeout(retryJoin, retryDelay);
+    lastHostSeen = Date.now();
+    startGuestPing();
+  });
+
+  hostConn.on('data', data => {
+    if (!data || !data.type) return;
+    lastHostSeen = Date.now();
+    if (data.type === 'PONG') return;
+
+    if (data.type === 'ROOM_FULL') {
+      finishWithError('❌ В комнате уже максимум (5 игроков) или игра идёт.');
+      return;
+    }
+
+    if (data.type === 'LOBBY' && !joinedConfirmed) {
+      joinedConfirmed = true;
+      clearAllTimers();
+      btnJoin.disabled = false;
+      setMpStatus('');
+      document.getElementById('lobby-code').innerText = rawCode;
+      document.getElementById('host-controls').style.display = 'none';
+      document.getElementById('guest-wait').style.display = 'block';
+      showScreen('screen-lobby');
+    }
+    handleGuestData(data);
+  });
+
+  hostConn.on('close', () => {
+    if (closingIntentionally) return;
+    clearAllTimers();
+    stopGuestPing();
+    btnJoin.disabled = false;
+    document.getElementById('game-over-overlay').style.display = 'none';
+    showScreen('screen-mp-menu');
+    setMpStatus('⚠️ Соединение с комнатой потеряно. Возможно, создатель закрыл игру. Нажмите «Войти в комнату», чтобы вернуться — место сохранится.');
+  });
+
+  hostConn.on('error', () => {
+    if (closingIntentionally) return;
+    if (joinedConfirmed) return;
+    finishWithError('❌ Ошибка соединения с комнатой. Попробуйте ещё раз.');
+  });
+}
+
+function startGuestPing() {
+  stopGuestPing();
+  guestPingTimer = setInterval(() => {
+    const now = Date.now();
+    if (hostConn && hostConn.open) {
+      try { hostConn.send({ type: 'PING' }); } catch (e) {}
+    }
+    // Хост замолчал — считаем канал мёртвым и закрываем (сработает on('close'))
+    if (joinedConfirmed && lastHostSeen && now - lastHostSeen > HEARTBEAT_TIMEOUT) {
+      try { hostConn && hostConn.close(); } catch (e) {}
+    }
+  }, HEARTBEAT_INTERVAL);
+}
+
+// ---------- Лобби ----------
 
 function addBotToLobby() {
   if (state.players.length >= MAX_PLAYERS) return;
@@ -642,7 +862,7 @@ function renderLobby() {
   state.players.forEach((p, idx) => {
     const li = document.createElement('li');
     const roleBadge = idx === 0 ? '👑 ' : (p.isBot ? '🤖 ' : '👤 ');
-    li.innerHTML = `<span>${roleBadge}${p.name}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
+    li.innerHTML = `<span>${roleBadge}${esc(p.name)}</span><span>${p.id === state.myId ? '(Вы)' : ''}</span>`;
     ul.appendChild(li);
   });
   document.getElementById('lobby-count').innerText = state.players.length;
@@ -658,9 +878,13 @@ function startMultiplayerGame() {
 }
 
 function leaveRoom() {
+  closingIntentionally = true;
   clearAllTimers();
-  if (peer) { try { peer.destroy(); } catch (e) {} }
+  stopHostHeartbeat();
+  stopGuestPing();
+  safeDestroyPeer(peer);
   connections = {};
+  connLastSeen = {};
   hostConn = null;
   document.getElementById('game-over-overlay').style.display = 'none';
   showScreen('screen-menu');
@@ -668,18 +892,22 @@ function leaveRoom() {
 
 function quitToMenu() {
   clearAllTimers();
+  stopHostHeartbeat();
+  stopGuestPing();
   state.step = 'GAME_OVER';
   state.gameStarted = false;
-  if (peer) { try { peer.destroy(); } catch (e) {} }
+  safeDestroyPeer(peer);
   connections = {};
+  connLastSeen = {};
   hostConn = null;
   document.getElementById('game-over-overlay').style.display = 'none';
   showScreen('screen-menu');
 }
 
+// ---------- Игровая логика ----------
+
 function initMatch() {
   clearAllTimers();
-  // Скроем оверлей окончания игры при перезапуске
   document.getElementById('game-over-overlay').style.display = 'none';
 
   const count = state.players.length;
@@ -705,11 +933,7 @@ function initMatch() {
   state.botMemory = {};
   state.players.forEach(p => {
     if (p.isBot) {
-      state.botMemory[p.id] = {
-        noRank: new Set(),
-        hasRank: new Set(),
-        failedSuits: {}
-      };
+      state.botMemory[p.id] = { noRank: new Set(), hasRank: new Set(), failedSuits: {} };
     }
   });
 
@@ -848,9 +1072,7 @@ function recordTableEvent(fromId, toId, rank, gotCards, guessedSuits) {
     } else if (guessedSuits && guessedSuits.length > 0) {
       mem.hasRank.add(key);
       if (!mem.failedSuits[key]) mem.failedSuits[key] = new Set();
-      if (guessedSuits.length === 1) {
-        mem.failedSuits[key].add(guessedSuits[0]);
-      }
+      if (guessedSuits.length === 1) mem.failedSuits[key].add(guessedSuits[0]);
     }
   });
 }
@@ -989,7 +1211,7 @@ function resolveHasRankAnswer(asker, target, rank) {
 function handleHumanChoice(action, payload) {
   if (state.mode === 'guest') {
     if (hostConn && hostConn.open) {
-      hostConn.send({ type: 'ACTION', playerId: state.myId, action, payload });
+      try { hostConn.send({ type: 'ACTION', playerId: state.myId, action, payload }); } catch (e) {}
     }
     return;
   }
@@ -1124,38 +1346,7 @@ function processHumanAction(playerId, action, payload) {
   }
 }
 
-function handleHostData(conn, data) {
-  if (!data || !data.type) return;
-
-  if (data.type === 'JOIN') {
-    const playerId = conn.peer;
-    connections[playerId] = conn;
-
-    const existing = state.players.find(p => p.id === playerId);
-    if (existing) {
-      if (data.nick) existing.name = data.nick;
-      broadcastLobby();
-      return;
-    }
-
-    if (state.gameStarted || state.players.length >= MAX_PLAYERS) {
-      try { conn.send({ type: 'ROOM_FULL' }); } catch (e) {}
-      return;
-    }
-
-    state.players.push({
-      id: playerId,
-      name: data.nick || 'Гость',
-      isBot: false,
-      hand: [],
-      chests: []
-    });
-    broadcastLobby();
-  } else if (data.type === 'ACTION') {
-    const senderId = conn.peer;
-    processHumanAction(senderId, data.action, data.payload);
-  }
-}
+// ---------- Синхронизация ----------
 
 function handleGuestData(data) {
   if (!data || !data.type) return;
@@ -1190,41 +1381,15 @@ function broadcastAnim(fromId, toId, cards) {
 function syncState() {
   renderGame();
   if (state.mode === 'host') {
-    const logText = document.getElementById('game-log').innerText;
     Object.entries(connections).forEach(([peerId, conn]) => {
       if (!conn || !conn.open) return;
-      const sanitizedPlayers = state.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        isBot: p.isBot,
-        chests: p.chests,
-        handCount: p.hand.length,
-        hand: p.id === peerId ? p.hand : []
-      }));
-      try {
-        conn.send({
-          type: 'STATE',
-          players: sanitizedPlayers,
-          activeRanks: state.activeRanks,
-          turnIndex: state.turnIndex,
-          step: state.step,
-          pendingAsk: state.pendingAsk,
-          log: logText
-        });
-      } catch (e) {}
+      try { conn.send(buildStatePayload(peerId)); } catch (e) {}
     });
   }
 }
 
 function setLog(text) {
   document.getElementById('game-log').innerText = text;
-}
-
-function getOpponentPositions(oppCount) {
-  if (oppCount === 1) return ['pos-top-center'];
-  if (oppCount === 2) return ['pos-top-left', 'pos-top-right'];
-  if (oppCount === 3) return ['pos-mid-left', 'pos-top-center', 'pos-mid-right'];
-  return ['pos-top-left', 'pos-top-right', 'pos-bot-left', 'pos-bot-right'];
 }
 
 function renderGame() {
@@ -1243,7 +1408,7 @@ function renderGame() {
     opponents.push(state.players[(myIdx + i) % state.players.length]);
   }
 
-  opponents.forEach((p, idx) => {
+  opponents.forEach((p) => {
     const count = (p.hand && p.hand.length > 0) ? p.hand.length : (p.handCount || 0);
     const canSelect = isMyTurn && state.step === 'SELECT_TARGET' && count > 0;
 
@@ -1253,7 +1418,7 @@ function renderGame() {
       (currentPlayer && currentPlayer.id === p.id ? ' active-turn' : '') +
       (canSelect ? ' selectable' : '');
     div.innerHTML = `
-      <div class="p-name">${p.isBot ? '🤖' : '👤'} ${p.name}</div>
+      <div class="p-name">${p.isBot ? '🤖' : '👤'} ${esc(p.name)}</div>
       <div class="p-stats">
         <span>🃏 <b>${count}</b></span>
         <span>📦 <b>${p.chests.length}</b></span>
@@ -1275,7 +1440,7 @@ function renderGame() {
 
     ansModal.style.display = 'block';
     document.getElementById('answer-question').innerText =
-      `${asker.name} спрашивает: «Есть ли ${highlightRank}?»`;
+      `${asker ? asker.name : 'Соперник'} спрашивает: «Есть ли ${highlightRank}?»`;
 
     const btnYes = document.getElementById('btn-ans-yes');
     const btnNo = document.getElementById('btn-ans-no');
@@ -1336,7 +1501,6 @@ function renderGame() {
       grid.className = 'grid-suits';
       const mySuits = me.hand.filter(c => c.rank === state.pendingAsk.rank).map(c => c.suit);
 
-      // Масти всегда в фиксированном порядке SUITS (♠ ♥ ♦ ♣)
       SUITS.forEach(s => {
         const btn = document.createElement('button');
         btn.className = 'choice-btn';
@@ -1358,7 +1522,6 @@ function renderGame() {
 
   const cardsWrap = document.getElementById('my-cards');
   cardsWrap.innerHTML = '';
-  // Сортировка: сначала по номиналу, при равенстве — по фиксированному порядку мастей
   const sortedHand = [...me.hand].sort((a, b) => {
     const rankDiff = state.activeRanks.indexOf(a.rank) - state.activeRanks.indexOf(b.rank);
     if (rankDiff !== 0) return rankDiff;
@@ -1374,7 +1537,6 @@ function renderGame() {
     cardsWrap.appendChild(div);
   });
 
-  // Оверлей окончания игры
   const gameOverOverlay = document.getElementById('game-over-overlay');
   if (state.step === 'GAME_OVER') {
     gameOverOverlay.style.display = 'flex';
@@ -1383,7 +1545,7 @@ function renderGame() {
     const isWinner = winner && winner.id === state.myId;
     document.getElementById('game-over-text').innerHTML = isWinner
       ? `🎉 Вы победили!<br>Ваших сундучков: <b>${winner.chests.length}</b>`
-      : `Победил(а) <b>${winner ? winner.name : '?'}</b><br>Сундучков: <b>${winner ? winner.chests.length : 0}</b>`;
+      : `Победил(а) <b>${winner ? esc(winner.name) : '?'}</b><br>Сундучков: <b>${winner ? winner.chests.length : 0}</b>`;
     const isGuest = state.mode === 'guest';
     document.getElementById('game-over-buttons').style.display = isGuest ? 'none' : 'flex';
     document.getElementById('game-over-waiting').style.display = isGuest ? 'block' : 'none';
