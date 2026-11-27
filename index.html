@@ -71,9 +71,22 @@
   }
   .log-box {
     background: rgba(11, 36, 28, 0.94); border: 1px solid #2e7d32; border-radius: 10px;
-    padding: 8px 10px; text-align: center; font-size: 13px; line-height: 1.35;
-    min-height: 48px; display: flex; align-items: center; justify-content: center;
-    margin: 0 0 6px 0;
+    padding: 6px 10px; text-align: center; font-size: 13px; line-height: 1.4;
+    max-height: 122px; overflow: hidden; margin: 0 0 6px 0;
+  }
+  .log-line { padding: 1px 0; transition: opacity 0.4s; }
+  #ask-arrow-layer {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 12; pointer-events: none; overflow: visible;
+  }
+  @keyframes ask-arrow-flow { to { stroke-dashoffset: -30; } }
+  .ask-arrow-path {
+    animation: ask-arrow-flow 1.8s linear infinite;
+    filter: drop-shadow(0 0 3px rgba(255,213,79,0.4));
+  }
+  .ask-arrow-label {
+    fill: rgba(255,255,255,0.9); font-size: 11px; font-weight: bold; text-anchor: middle;
+    paint-order: stroke; stroke: rgba(0,0,0,0.55); stroke-width: 3px;
   }
   .action-panel { background: rgba(0, 0, 0, 0.68); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.14); }
   .panel-title { font-size: 12px; color: #ffd54f; margin-bottom: 6px; text-align: center; font-weight: bold; }
@@ -111,7 +124,7 @@
     background: #fff; color: #111; font-weight: bold; font-size: 13px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     box-shadow: 0 6px 16px rgba(0,0,0,0.6); z-index: 9999; pointer-events: none;
-    transition: left 0.75s cubic-bezier(0.22, 1, 0.36, 1), top 0.75s cubic-bezier(0.22, 1, 0.36, 1), transform 0.75s ease;
+    transition: left 1.05s cubic-bezier(0.22, 1, 0.36, 1), top 1.05s cubic-bezier(0.22, 1, 0.36, 1), transform 1.05s ease;
   }
   .flying-card.back { background: #1e4b7a; border: 2px solid #fff; color: transparent; }
   .flying-card.red { color: #d32f2f; }
@@ -153,7 +166,7 @@
       <button type="button" id="btn-share-bot" class="btn btn-tg">🔗 Отправить игру другу</button>
     </div>
   </div>
-  <div class="version-label">Версия 0.5.2</div>
+  <div class="version-label">Версия 0.5.3</div>
 </div>
 
 <div id="screen-mp-menu" class="screen">
@@ -185,7 +198,7 @@
 
     <button type="button" id="btn-back-menu" class="btn btn-secondary">← Назад в меню</button>
   </div>
-  <div class="version-label">Версия 0.5.2</div>
+  <div class="version-label">Версия 0.5.3</div>
 </div>
 
 <div id="screen-lobby" class="screen">
@@ -208,7 +221,7 @@
 
     <button type="button" id="btn-leave-lobby" class="btn btn-danger" style="margin-top: 10px;">Выйти</button>
   </div>
-  <div class="version-label">Версия 0.5.2</div>
+  <div class="version-label">Версия 0.5.3</div>
 </div>
 
 <div id="screen-game" class="screen">
@@ -219,6 +232,7 @@
 
   <div class="arena" id="arena-container">
     <div id="opponents-layer"></div>
+    <svg id="ask-arrow-layer"></svg>
 
     <div class="center-table">
       <div id="answer-modal" class="answer-banner" style="display:none;">
@@ -265,10 +279,10 @@
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS_36 = ['6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
 const RANKS_52 = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'В', 'Д', 'К', 'Т'];
-const BOT_DELAY = 2600;
-const BOT_STEP_DELAY = 2200;
+const BOT_DELAY = 3400;
+const BOT_STEP_DELAY = 2900;
 const MAX_PLAYERS = 5;
-const GAME_VERSION = '0.5.0';
+const GAME_VERSION = '0.5.3';
 const ROOM_CODE_LENGTH = 5;
 const JOIN_TIMEOUT_MS = 30000;
 const HEARTBEAT_INTERVAL = 10000;
@@ -791,7 +805,7 @@ function buildStatePayload(peerId) {
     turnIndex: state.turnIndex,
     step: state.step,
     pendingAsk: state.pendingAsk,
-    log: document.getElementById('game-log').innerText
+    log: gameLogHistory.slice()
   };
 }
 
@@ -1116,6 +1130,7 @@ function initMatch() {
   state.turnIndex = 0;
   state.pendingAsk = null;
 
+  setLog(`\uD83C\uDFCC Игра началась! Первым ходит ${state.players[0].name}`);
   showScreen('screen-game');
   startTurn();
 }
@@ -1226,8 +1241,8 @@ function animateCardTransfer(fromId, toId, cardsToFly, showFace) {
         el.style.transform = 'scale(1.12) rotate(' + ((idx - 1) * 8) + 'deg)';
       });
 
-      setTimeout(() => el.remove(), 800);
-    }, idx * 160);
+      setTimeout(() => el.remove(), 1250);
+    }, idx * 200);
   });
 }
 
@@ -1365,7 +1380,7 @@ function resolveHasRankAnswer(asker, target, rank) {
                 asker.hand.push(...matching);
                 recordTableEvent(asker.id, target.id, rank, true, guessSuits);
 
-                setLog(`🎉 ${asker.name} угадал(а) всё и забирает карты у ${target.name}!`);
+                setLog(`🎉 ${asker.name} угадал(а) всё и забирает ${matching.length} карт у ${target.name}!`);
                 checkChests(asker, true);
                 syncState();
                 scheduleStep(() => startTurn(), BOT_STEP_DELAY);
@@ -1428,7 +1443,7 @@ function processHumanAction(playerId, action, payload) {
           recordTableEvent(playerId, target.id, payload, false, null);
           setLog(`❌ ${target.name} отвечает: «Нет ${payload}».`);
           syncState();
-          scheduleStep(() => advanceTurn(), 1800);
+          scheduleStep(() => advanceTurn(), 2300);
         } else {
           state.step = 'SELECT_COUNT';
           setLog(`✅ ${target.name} отвечает: «Да, есть!» ${player.name} угадывает количество...`);
@@ -1450,7 +1465,7 @@ function processHumanAction(playerId, action, payload) {
       recordTableEvent(asker.id, target.id, rank, false, null);
       setLog(`❌ ${target.name} отвечает: «Нет ${rank}». Ход переходит дальше.`);
       syncState();
-      scheduleStep(() => advanceTurn(), 1800);
+      scheduleStep(() => advanceTurn(), 2300);
     } else {
       if (asker.isBot) {
         state.step = 'BOT_THINKING';
@@ -1473,7 +1488,7 @@ function processHumanAction(playerId, action, payload) {
       state.step = 'BOT_THINKING';
       setLog(`❌ ${asker.name} назвал(а) ${count} шт., но количество не совпало!`);
       syncState();
-      scheduleStep(() => advanceTurn(), 2000);
+      scheduleStep(() => advanceTurn(), 2600);
     } else {
       state.pendingAsk.count = count;
       state.pendingAsk.suits = [];
@@ -1508,15 +1523,15 @@ function processHumanAction(playerId, action, payload) {
       asker.hand.push(...matching);
       recordTableEvent(asker.id, target.id, req.rank, true, req.suits);
 
-      setLog(`🎉 ${asker.name} угадал(а) все карты и забирает их! Дополнительный ход!`);
+      setLog(`🎉 ${asker.name} забирает ${matching.length} карт у ${target.name}! Дополнительный ход!`);
       checkChests(asker, true);
       syncState();
-      scheduleStep(() => startTurn(), 1600);
+      scheduleStep(() => startTurn(), 2100);
     } else {
       recordTableEvent(asker.id, target.id, req.rank, false, req.suits);
       setLog(`❌ Масть не совпала (названо: ${req.suits.join(', ')}). Ход переходит дальше.`);
       syncState();
-      scheduleStep(() => advanceTurn(), 2000);
+      scheduleStep(() => advanceTurn(), 2600);
     }
   }
 }
@@ -1536,7 +1551,8 @@ function applyGuestPayload(data) {
     state.step = data.step;
     state.pendingAsk = data.pendingAsk;
     document.getElementById('deck-info').innerText = `Колода: ${state.activeRanks.length * 4} карт (${state.activeRanks.length} сунд.)`;
-    document.getElementById('game-log').innerText = data.log;
+    gameLogHistory = Array.isArray(data.log) ? data.log.slice(0, LOG_HISTORY_MAX) : [String(data.log || '')];
+    renderLogHistory();
     showScreen('screen-game');
     renderGame();
   } else if (data.type === 'ANIM') {
@@ -1563,9 +1579,73 @@ function syncState() {
   }
 }
 
-function setLog(text) {
-  document.getElementById('game-log').innerText = text;
+const LOG_HISTORY_MAX = 7;
+let gameLogHistory = [];
+
+function renderLogHistory() {
+  const el = document.getElementById('game-log');
+  if (!el) return;
+  el.innerHTML = '';
+  gameLogHistory.forEach((t, i) => {
+    const d = document.createElement('div');
+    d.className = 'log-line';
+    d.style.opacity = i === 0 ? 1 : Math.max(0.4, 1 - i * 0.1);
+    d.innerText = t;
+    el.appendChild(d);
+  });
 }
+
+function setLog(text) {
+  gameLogHistory.unshift(text);
+  if (gameLogHistory.length > LOG_HISTORY_MAX) gameLogHistory.pop();
+  renderLogHistory();
+}
+
+// Стрелка «кто у кого спрашивает»: тонкий полупрозрачный луч от спрашивающего к спрашиваемому
+function drawAskArrow() {
+  const svg = document.getElementById('ask-arrow-layer');
+  if (!svg) return;
+  const ask = state && state.pendingAsk;
+  if (!ask || ask.fromId == null || ask.toId == null) { svg.innerHTML = ''; return; }
+
+  const arena = document.getElementById('arena-container');
+  if (!arena) { svg.innerHTML = ''; return; }
+  const fromEl = ask.fromId === state.myId
+    ? document.getElementById('my-hand-zone')
+    : document.getElementById('badge-' + ask.fromId);
+  const toEl = ask.toId === state.myId
+    ? document.getElementById('my-hand-zone')
+    : document.getElementById('badge-' + ask.toId);
+  if (!fromEl || !toEl) { svg.innerHTML = ''; return; }
+
+  const ar = arena.getBoundingClientRect();
+  const r1 = fromEl.getBoundingClientRect();
+  const r2 = toEl.getBoundingClientRect();
+  const p1 = { x: r1.left + r1.width / 2 - ar.left, y: r1.top + r1.height / 2 - ar.top };
+  const p2 = { x: r2.left + r2.width / 2 - ar.left, y: r2.top + r2.height / 2 - ar.top };
+  if (Math.abs(p1.x - p2.x) < 2 && Math.abs(p1.y - p2.y) < 2) { svg.innerHTML = ''; return; }
+
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const bow = Math.min(55, len * 0.18);
+  const cx = (p1.x + p2.x) / 2 - (dy / len) * bow;
+  const cy = (p1.y + p2.y) / 2 + (dx / len) * bow;
+
+  const asker = state.players.find(p => p.id === ask.fromId);
+  const target = state.players.find(p => p.id === ask.toId);
+  const label = `${asker ? asker.name : '?'}\u2192${target ? target.name : '?'}: «${ask.rank}?»`;
+
+  svg.innerHTML =
+    '<path class="ask-arrow-path" d="M ' + p1.x + ' ' + p1.y + ' Q ' + cx + ' ' + cy + ' ' + p2.x + ' ' + p2.y + '"' +
+    ' fill="none" stroke="rgba(255,213,79,0.55)" stroke-width="3" stroke-linecap="round" stroke-dasharray="9 7"/>' +
+    '<circle cx="' + p2.x + '" cy="' + p2.y + '" r="5" fill="rgba(255,213,79,0.55)"/>' +
+    '<text class="ask-arrow-label" x="' + cx + '" y="' + cy + '">' + esc(label) + '</text>';
+}
+
+// Перерисовка стрелки при повороте/изменении размера экрана
+window.addEventListener('resize', () => {
+  if (typeof state !== 'undefined' && state && state.players && state.players.length) drawAskArrow();
+});
 
 function renderGame() {
   const me = state.players.find(p => p.id === state.myId);
@@ -1627,6 +1707,8 @@ function renderGame() {
   } else {
     ansModal.style.display = 'none';
   }
+
+  drawAskArrow();
 
   const turnPanel = document.getElementById('turn-panel');
   const turnChoices = document.getElementById('turn-choices');
